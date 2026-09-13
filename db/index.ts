@@ -44,6 +44,31 @@ export async function runMigrations() {
       synthesis_json TEXT NOT NULL,
       archived_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     );
+
+    CREATE TABLE IF NOT EXISTS knowledge_content_cache (
+      page_id TEXT PRIMARY KEY,
+      revision TEXT NOT NULL,
+      document_json TEXT NOT NULL,
+      cached_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS second_brain_runs (
+      cache_key TEXT PRIMARY KEY,
+      local_date TEXT NOT NULL,
+      result_json TEXT NOT NULL,
+      generated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS second_brain_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      page_id TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS second_brain_history_date_page_unique
+      ON second_brain_history(date, page_id);
   `)
 }
 
