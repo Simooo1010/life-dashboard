@@ -96,7 +96,11 @@ Rispondi SOLO con JSON valido in questa forma esatta, senza testo o markdown att
     max_tokens: mode === 'compact' ? 500 : 900,
     temperature: 0.3,
     response_format: { type: 'json_object' },
-    reasoning_effort: 'low',
+    // qwen/qwen3.8-27b is a reasoning model — anything above 'none' here can
+    // burn the whole max_tokens budget on hidden thinking and return an
+    // empty/invalid completion (json_validate_failed). Same fix already
+    // applied to lib/groq/synthesis.ts and lib/groq/event-weather-correlation.ts.
+    reasoning_effort: 'none',
     reasoning_format: 'hidden',
   })
 
