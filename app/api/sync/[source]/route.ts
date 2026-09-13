@@ -3,17 +3,19 @@ import { fetchSecondBrainData } from '@/lib/notion/second-brain'
 import { fetchCalendarData } from '@/lib/calendar/google'
 import { fetchLifeOsData } from '@/lib/notion/life-os'
 import { fetchWeatherData } from '@/lib/weather/client'
+import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-type Source = 'calendar' | 'second-brain' | 'life-os' | 'weather'
+type Source = 'calendar' | 'second-brain' | 'life-os' | 'weather' | 'newsletter'
 
 const FETCHERS: Record<Source, () => Promise<unknown>> = {
   'calendar': fetchCalendarData,
   'second-brain': fetchSecondBrainData,
   'life-os': fetchLifeOsData,
   'weather': fetchWeatherData,
+  'newsletter': () => fetchNewsletterProjectState({ forceRefresh: true }),
 }
 
 export async function GET(

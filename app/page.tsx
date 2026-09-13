@@ -5,12 +5,15 @@ import { TimelineSection } from '@/components/home/TimelineSection'
 import { PrioritiesSection } from '@/components/home/PrioritiesSection'
 import { SecondBrainSection } from '@/components/home/SecondBrainSection'
 import { FinanceSection } from '@/components/home/FinanceSection'
+import { NewsletterPulse } from '@/components/home/NewsletterPulse'
+import { LifeOsPulse } from '@/components/home/LifeOsPulse'
 import { runDailyOrchestrator } from '@/lib/orchestrator/daily-sync'
 import { isFinanceConfigured } from '@/lib/finance/client'
 import { fetchFinanceSnapshot } from '@/lib/finance/snapshot'
 import { getFinanceInsights } from '@/lib/groq/finance-insights'
 import type { FinanceSnapshot } from '@/lib/finance/types'
-import { LifeOsPulse } from '@/components/home/LifeOsPulse'
+import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
+import type { NewsletterProjectState } from '@/lib/newsletter/types'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -31,6 +34,15 @@ async function loadFinanceHomeData() {
   return { configured, snapshot, observations }
 }
 
+async function loadNewsletterHomeData(): Promise<NewsletterProjectState | null> {
+  try {
+    return await fetchNewsletterProjectState()
+  } catch (error) {
+    console.error('[HomePage][Newsletter]', error)
+    return null
+  }
+}
+
 export default async function HomePage() {
   let data
   try {
@@ -40,7 +52,7 @@ export default async function HomePage() {
     data = null
   }
 
-  const finance = await loadFinanceHomeData()
+  const [finance, newsletter] = await Promise.all([loadFinanceHomeData(), loadNewsletterHomeData()])
 
   const synthesis = data?.synthesis
   const sourceData = data?.sourceData
@@ -98,15 +110,8 @@ export default async function HomePage() {
           configured={finance.configured}
         />
 
-        {/* ─── Newsletter note ──────────────────────────────────── */}
-        {synthesis?.newsletterNote && (
-          <section>
-            <p className="section-label mb-3">Newsletter</p>
-            <div className="card">
-              <p className="text-sm text-ink leading-relaxed">{synthesis.newsletterNote}</p>
-            </div>
-          </section>
-        )}
+        {/* ─── Newsletter project pulse ─────────────────────────── */}
+        <NewsletterPulse state={newsletter} />
 
         {/* ─── Footer ───────────────────────────────────────────── */}
         <footer className="text-center text-2xs text-ink-faint pb-2">

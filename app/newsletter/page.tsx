@@ -1,50 +1,37 @@
 import { AppShell } from '@/components/layout/AppShell'
+import { NewsletterDashboard } from '@/components/newsletter/NewsletterDashboard'
+import { fetchCalendarData } from '@/lib/calendar/google'
+import { findProjectCalendarEvents } from '@/lib/newsletter/calendar'
+import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
+import { NOTION_PAGES } from '@/lib/notion/client'
 import { ExternalLink } from 'lucide-react'
 
-export default function NewsletterPage() {
-  return (
-    <AppShell>
-      <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 space-y-8">
-        <h1 className="text-xl font-semibold text-ink">Newsletter</h1>
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-        <div className="card space-y-5">
-          <div>
-            <p className="section-label mb-2">Missione</p>
-            <p className="text-sm text-ink leading-relaxed">
-              Aiutare le persone comuni a capire davvero l&apos;AI — inclusi i principianti assoluti.
-              Ispirata a Daniel Kokotajlo e Diary of a CEO.
-            </p>
-          </div>
+export default async function NewsletterPage() {
+  const [stateResult, calendarResult] = await Promise.allSettled([
+    fetchNewsletterProjectState(),
+    fetchCalendarData(),
+  ])
 
-          <div className="border-t border-border pt-4">
-            <p className="section-label mb-2">Formato</p>
-            <p className="text-sm text-ink-muted leading-relaxed">
-              Articoli brevi quotidiani, accessibili a tutti i livelli. Un quiz di onboarding per
-              segmentare i lettori.
-            </p>
-          </div>
-
-          <div className="border-t border-border pt-4">
-            <p className="section-label mb-2">Risorse</p>
-            <a
-              href="https://notion.so"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
-            >
-              <ExternalLink size={12} />
-              Apri Master Brief in Notion
-            </a>
+  if (stateResult.status === 'rejected') {
+    console.error('[NewsletterPage]', stateResult.reason)
+    const notionUrl = `https://app.notion.com/p/${NOTION_PAGES.newsletterBrief.replace(/-/g, '')}`
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-2xl space-y-5 px-4 py-8 md:px-8">
+          <p className="section-label">Newsletter</p>
+          <div className="card space-y-3">
+            <h1 className="text-xl font-semibold text-ink">Fonte momentaneamente non disponibile</h1>
+            <p className="text-sm leading-relaxed text-ink-muted">La dashboard non può leggere il Master Brief in questo momento. Nessuno stato sostitutivo è stato generato.</p>
+            <a href={notionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline">Apri la fonte in Notion <ExternalLink size={13} /></a>
           </div>
         </div>
+      </AppShell>
+    )
+  }
 
-        <div className="card bg-amber-50 border-amber-200">
-          <p className="text-sm text-amber-800 leading-relaxed">
-            Le analisi e i suggerimenti sulla newsletter vengono generati automaticamente ogni mattina
-            nella dashboard principale.
-          </p>
-        </div>
-      </div>
-    </AppShell>
-  )
+  const calendar = calendarResult.status === 'fulfilled' ? calendarResult.value : { todayEvents: [], upcomingEvents: [], fetchedAt: new Date().toISOString() }
+  return <AppShell><NewsletterDashboard state={stateResult.value} events={findProjectCalendarEvents(stateResult.value, calendar)} /></AppShell>
 }
