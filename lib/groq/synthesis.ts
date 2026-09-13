@@ -74,6 +74,8 @@ Elenca in modo conciso (bullet points) le 3-5 informazioni più importanti per l
     messages: [{ role: 'user', content: factsPrompt }],
     max_tokens: 600,
     temperature: 0.3,
+    reasoning_effort: 'low',
+    reasoning_format: 'hidden',
   })
 
   const keyFacts = factsResponse.choices[0]?.message?.content ?? ''
@@ -115,6 +117,8 @@ Rispondi rigorosamente SOLO con il JSON, senza testo o blocchi markdown attorno.
     max_tokens: 850,
     temperature: 0.4,
     response_format: { type: 'json_object' },
+    reasoning_effort: 'none',
+    reasoning_format: 'hidden',
   })
 
   const raw = synthesisResponse.choices[0]?.message?.content ?? '{}'
