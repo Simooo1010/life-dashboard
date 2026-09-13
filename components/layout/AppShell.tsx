@@ -11,12 +11,14 @@ import {
   Newspaper,
   Settings,
   LogOut,
+  Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { href: '/',               icon: Home,       label: 'Oggi' },
   { href: '/calendar',       icon: Calendar,   label: 'Calendario' },
+  { href: '/finance',        icon: Wallet,     label: 'Finanze' },
   { href: '/weather',        icon: CloudSun,   label: 'Meteo' },
   { href: '/life-os',        icon: BookOpen,   label: 'Life OS' },
   { href: '/second-brain',   icon: Brain,      label: 'Secondo Cervello' },
@@ -88,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* ─── Mobile bottom bar ─────────────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border flex items-center justify-around px-2 py-2 safe-area-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border flex items-center justify-around px-2 py-2 safe-area-bottom dark:bg-surface-dark dark:border-border-dark">
         {NAV_ITEMS.slice(0, 5).map(({ href, icon: Icon, label }) => {
           const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (

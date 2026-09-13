@@ -49,7 +49,7 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
   const weatherData = weatherResult.status === 'fulfilled' ? weatherResult.value : null
 
   // Correlate calendar with weather
-  const weatherSignals = weatherData ? correlateCalendarWithWeather(calendarData.todayEvents, weatherData) : null
+  const weatherSignals = weatherData ? await correlateCalendarWithWeather(calendarData.todayEvents, weatherData) : null
 
   const sourceData: AllSourceData = {
     date,

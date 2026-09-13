@@ -12,10 +12,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    color-scheme: light dark;
   }
 
   body {
-    @apply bg-canvas text-ink font-sans;
+    @apply bg-canvas text-ink font-sans dark:bg-canvas-dark dark:text-ink-dark;
     min-height: 100dvh;
   }
 
@@ -28,10 +29,10 @@
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
+    @apply bg-border rounded-full dark:bg-border-dark;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-ink-faint;
+    @apply bg-ink-faint dark:bg-ink-faint-dark;
   }
 
   /* Focus ring */
@@ -47,22 +48,22 @@
   .cat-health     { @apply text-semantic-health }
   .cat-finance    { @apply text-semantic-finance }
   .cat-newsletter { @apply text-semantic-newsletter }
-  .cat-other      { @apply text-ink-muted }
+  .cat-other      { @apply text-ink-muted dark:text-ink-muted-dark }
 
-  .cat-school-bg     { @apply bg-blue-50 }
-  .cat-sport-bg      { @apply bg-green-50 }
-  .cat-health-bg     { @apply bg-rose-50 }
-  .cat-finance-bg    { @apply bg-purple-50 }
-  .cat-newsletter-bg { @apply bg-amber-50 }
-  .cat-other-bg      { @apply bg-gray-50 }
+  .cat-school-bg     { @apply bg-blue-50 dark:bg-blue-950/40 }
+  .cat-sport-bg      { @apply bg-green-50 dark:bg-green-950/40 }
+  .cat-health-bg     { @apply bg-rose-50 dark:bg-rose-950/40 }
+  .cat-finance-bg    { @apply bg-purple-50 dark:bg-purple-950/40 }
+  .cat-newsletter-bg { @apply bg-amber-50 dark:bg-amber-950/40 }
+  .cat-other-bg      { @apply bg-gray-50 dark:bg-gray-800/40 }
 
   /* Card */
   .card {
-    @apply bg-white border border-border rounded-2xl p-5 shadow-sm;
+    @apply bg-white border border-border rounded-2xl p-5 shadow-sm dark:bg-surface-dark dark:border-border-dark;
   }
 
   /* Section heading */
   .section-label {
-    @apply text-xs font-semibold tracking-wider uppercase text-ink-muted;
+    @apply text-xs font-semibold tracking-wider uppercase text-ink-muted dark:text-ink-muted-dark;
   }
 }

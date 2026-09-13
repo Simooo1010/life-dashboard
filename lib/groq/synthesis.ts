@@ -73,7 +73,9 @@ CONCETTI RECENTI NEL SECONDO CERVELLO: ${data.secondBrain.recentConcepts.map(c =
 FONTI SECONDO CERVELLO NON PROCESSATE: ${data.secondBrain.unprocessedSources.length}
 CONTESTO METEO ED EFFETTO SUGLI IMPEGNI: ${data.weather?.summaryForAI ?? 'Dati meteo non disponibili.'}
 
-Elenca in modo conciso (bullet points) le 3-5 informazioni più importanti per la giornata. Sii chiaro, diretto, senza enfasi drammatica o urgenza artificiosa. Se il meteo ha un impatto pratico su impegni (es. pioggia all'uscita o caldo prima dello sport), segnalalo concretamente.`
+Elenca in modo conciso (bullet points) le 3-5 informazioni più importanti per la giornata. Sii chiaro, diretto, senza enfasi drammatica o urgenza artificiosa.
+
+REGOLA FONDAMENTALE: basati ESCLUSIVAMENTE sui dati elencati sopra. Non inventare eventi, impegni o attività (es. una passeggiata, un'uscita, una commissione) che non siano esplicitamente presenti in EVENTI CALENDARIO OGGI o EVENTI PROSSIMI. Se il meteo ha un impatto pratico, collegalo SOLO a un evento realmente elencato in EVENTI CALENDARIO OGGI, citando il suo orario. Se EVENTI CALENDARIO OGGI è vuoto o nessun evento presente è esposto al meteo (spostamento, attività all'aperto), dillo esplicitamente ("nessun impegno oggi risente del meteo") invece di inventare uno scenario plausibile.`
 
   const factsRequest: GroqReasoningRequest = {
     model: 'qwen/qwen3.8-27b',
@@ -93,7 +95,8 @@ Linee guida essenziali:
 - Tratta questo anno con assoluta normalità (non fare riferimenti ansiogeni a esami o maturità).
 - Tono calmo, sobrio, amichevole e orientato all'equilibrio tra impegni, sport e riposo.
 - Non pianificare il suo tempo: Simone è l'essere umano, l'AI suggerisce solo con tatto.
-- METEO: Usa il meteo SOLO se altera materialmente l'interpretazione della giornata (es. pioggia attorno all'orario di uscita da scuola, tragitto compromesso per l'allenamento, o picco di calore prima dello sport). Non inserire mai frasi generiche o ovvie come "vestiti a cipolla" o "ricorda l'ombrello".
+- METEO: Usa il meteo SOLO se altera materialmente l'interpretazione della giornata E se è collegato a un impegno realmente presente nei fatti chiave sotto (es. pioggia attorno all'orario di uscita da scuola, tragitto compromesso per l'allenamento, o picco di calore prima dello sport). Non inserire mai frasi generiche o ovvie come "vestiti a cipolla" o "ricorda l'ombrello".
+- NON INVENTARE: non menzionare mai eventi, impegni o attività (uscite, passeggiate, commissioni, ecc.) che non sono esplicitamente presenti nei fatti chiave sotto. Se non ci sono impegni per oggi, dillo con naturalezza (giornata libera) invece di inventarne uno per giustificare una nota sul meteo. In quel caso "weatherNote" deve restare una stringa vuota.
 
 Fatti chiave estratti per oggi (${todayFormatted}):
 ${keyFacts}
@@ -101,7 +104,7 @@ ${keyFacts}
 Genera un JSON valido con questa struttura esatta:
 {
   "greeting": "un saluto cordiale e sobrio (1 frase)",
-  "dayOverview": "panoramica calma della giornata basata sugli eventi in programma (2-3 frasi)",
+  "dayOverview": "panoramica calma della giornata basata SOLO sugli eventi realmente in programma (2-3 frasi); se non ci sono eventi, dillo chiaramente",
   "priorities": [
     {
       "title": "titolo sintetico",
@@ -113,7 +116,7 @@ Genera un JSON valido con questa struttura esatta:
   "secondBrainInsight": "una breve osservazione su cosa sta approfondendo Simone nel Secondo Cervello (1 frase)",
   "energyForecast": "stima brevissima del carico cognitivo/fisico (max 5-6 parole)",
   "newsletterNote": "nota sul progetto newsletter o idee rilevanti, altrimenti stringa vuota",
-  "weatherNote": "nota pratica e contestuale su come il meteo incide su impegni o spostamenti (se rilevante, altrimenti stringa vuota)"
+  "weatherNote": "nota pratica su come il meteo incide su un impegno REALMENTE presente nei fatti chiave (con orario); stringa vuota se non ci sono impegni esposti al meteo oggi"
 }
 
 Rispondi rigorosamente SOLO con il JSON, senza testo o blocchi markdown attorno.`
