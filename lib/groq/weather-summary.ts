@@ -59,6 +59,8 @@ Scrivi il riepilogo in massimo 3 frasi, senza markdown, senza elenchi, senza pre
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 220,
       temperature: 0.3,
+      reasoning_effort: 'none',
+      reasoning_format: 'hidden',
     })
 
     const summary = response.choices[0]?.message?.content?.trim() ?? null
