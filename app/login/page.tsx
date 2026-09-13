@@ -63,9 +63,9 @@ export default function LoginPage() {
               autoFocus
               autoComplete="current-password"
               required
-              className="w-full px-4 py-3 text-sm bg-white border border-border rounded-xl
+              className="w-full px-4 py-3 text-sm bg-white dark:bg-surface-dark border border-border dark:border-border-dark rounded-xl
                          focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
-                         placeholder:text-ink-faint transition-all"
+                         placeholder:text-ink-faint dark:placeholder:text-ink-faint-dark dark:text-ink-dark transition-all"
             />
           </div>
 
