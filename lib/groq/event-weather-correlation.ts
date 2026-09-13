@@ -86,6 +86,8 @@ Se nessun evento è realmente influenzato dal meteo, rispondi con {"alerts": []}
       max_tokens: 700,
       temperature: 0.2,
       response_format: { type: 'json_object' },
+      reasoning_effort: 'none',
+      reasoning_format: 'hidden',
     })
 
     const raw = response.choices[0]?.message?.content ?? '{"alerts":[]}'
