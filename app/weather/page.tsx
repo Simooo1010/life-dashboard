@@ -2,6 +2,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { fetchWeatherData } from '@/lib/weather/client'
 import { fetchCalendarData } from '@/lib/calendar/google'
 import { correlateCalendarWithWeather } from '@/lib/weather/correlation'
+import { generateWeatherSummary } from '@/lib/groq/weather-summary'
 import {
   Sun,
   Cloud,
@@ -15,6 +16,7 @@ import {
   AlertTriangle,
   Info,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -45,6 +47,7 @@ function getWeatherIcon(condition: string, size = 16, className = '') {
 export default async function WeatherPage() {
   let weather = null
   let signals = null
+  let aiSummary: string | null = null
 
   try {
     const [weatherRes, calendarRes] = await Promise.allSettled([
@@ -56,6 +59,7 @@ export default async function WeatherPage() {
       weather = weatherRes.value
       const events = calendarRes.status === 'fulfilled' ? calendarRes.value.todayEvents : []
       signals = correlateCalendarWithWeather(events, weather)
+      aiSummary = await generateWeatherSummary(weather, signals)
     }
   } catch (error) {
     console.error('[WeatherPage]', error)
@@ -97,6 +101,16 @@ export default async function WeatherPage() {
             {provider.attribution.text} <ExternalLink size={10} />
           </a>
         </div>
+
+        {/* ─── AI Summary ─────────────────────────────────────────── */}
+        {aiSummary && (
+          <div className="card bg-amber-50/50 border-amber-200/80 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+              <Sparkles size={15} className="text-amber-600" />
+            </div>
+            <p className="text-sm text-ink leading-relaxed">{aiSummary}</p>
+          </div>
+        )}
 
         {/* ─── Hero Overview Card ─────────────────────────────────── */}
         <div className="card space-y-4">

@@ -70,7 +70,7 @@ CONTESTO METEO ED EFFETTO SUGLI IMPEGNI: ${data.weather?.summaryForAI ?? 'Dati m
 Elenca in modo conciso (bullet points) le 3-5 informazioni più importanti per la giornata. Sii chiaro, diretto, senza enfasi drammatica o urgenza artificiosa. Se il meteo ha un impatto pratico su impegni (es. pioggia all'uscita o caldo prima dello sport), segnalalo concretamente.`
 
   const factsResponse = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'qwen/qwen3.8-27b',
     messages: [{ role: 'user', content: factsPrompt }],
     max_tokens: 600,
     temperature: 0.3,
@@ -110,7 +110,7 @@ Genera un JSON valido con questa struttura esatta:
 Rispondi rigorosamente SOLO con il JSON, senza testo o blocchi markdown attorno.`
 
   const synthesisResponse = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'qwen/qwen3.8-27b',
     messages: [{ role: 'user', content: synthesisPrompt }],
     max_tokens: 850,
     temperature: 0.4,
