@@ -1,14 +1,19 @@
-import { notionSecondBrain, NOTION_DB, queryAll, getText, getSelect, getDate, getMultiSelect, getRelationIds, getUrl } from './client'
+import type { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints'
+import {
+  notionSecondBrain,
+  NOTION_DB,
+  queryAll,
+  getText,
+  getSelect,
+  getDate,
+  getRelationIds,
+  getUrl,
+} from './client'
+import type { KnowledgeNode, TruthCheckState } from '@/lib/second-brain/types'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-export interface KnowledgeNode {
-  id: string
-  concept: string
-  category: string | null
-  lastUpdated: string | null
-  relatedIds: string[]
-  url: string
-}
+type AnyProperty = PageObjectResponse['properties'][string]
+
+export type { KnowledgeNode } from '@/lib/second-brain/types'
 
 export interface RawSource {
   id: string
@@ -21,66 +26,98 @@ export interface RawSource {
 }
 
 export interface SecondBrainData {
-  recentConcepts: KnowledgeNode[]  // updated in last 14 days
+  recentConcepts: KnowledgeNode[]
   unprocessedSources: RawSource[]
   fetchedAt: string
 }
 
-// ─── Fetchers ──────────────────────────────────────────────────────────────────
-export async function fetchSecondBrainData(): Promise<SecondBrainData> {
-  const [knowledgePages, rawSourcePages] = await Promise.all([
-    queryAll(
-      notionSecondBrain,
-      NOTION_DB.knowledgeGraph,
-      undefined,
-      [{ property: 'Last updated', direction: 'descending' }],
-    ),
-    queryAll(
-      notionSecondBrain,
-      NOTION_DB.rawSources,
-      {
-        property: 'Status',
-        select: { equals: 'Unprocessed' },
-      },
-    ),
-  ])
+function getPropertyValue(prop: AnyProperty | undefined): string | null {
+  if (!prop) return null
+  if (prop.type === 'select') return prop.select?.name ?? null
+  if (prop.type === 'status') return prop.status?.name ?? null
+  if (prop.type === 'last_edited_time') return prop.last_edited_time
+  return getText(prop) || getDate(prop)
+}
 
-  const twoWeeksAgo = new Date()
-  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
-  const cutoff = twoWeeksAgo.toISOString().split('T')[0]
+function normalizeTruthCheck(prop: AnyProperty | undefined): TruthCheckState {
+  if (!prop) return 'unknown'
+  if (prop.type === 'checkbox') return prop.checkbox ? 'verified' : 'unverified'
+  if (prop.type === 'date') return prop.date?.start ? 'verified' : 'unknown'
+  const value = getPropertyValue(prop)?.trim().toLowerCase()
+  if (!value) return 'unknown'
+  if (['false', 'no', 'not checked', 'unverified', 'da verificare'].some(label => value.includes(label))) {
+    return 'unverified'
+  }
+  return 'verified'
+}
 
-  const recentConcepts: KnowledgeNode[] = knowledgePages
-    .map(page => {
-      const props = page.properties
-      const lastUpdated = getDate(props['Last updated'] ?? props['Last Updated'])
-      return {
-        id: page.id,
-        concept: getText(props['Concept'] ?? props['Name']),
-        category: getSelect(props['Category']),
-        lastUpdated,
-        relatedIds: getRelationIds(props['Related concepts'] ?? props['Related']),
-        url: page.url,
-      }
-    })
-    .filter(n => n.lastUpdated && n.lastUpdated >= cutoff)
-    .slice(0, 20)
+function getTitleFromPage(page: PageObjectResponse): string {
+  const titleProperty = Object.values(page.properties).find(property => property.type === 'title')
+  return getText(titleProperty)
+}
 
-  const unprocessedSources: RawSource[] = rawSourcePages.map(page => {
-    const props = page.properties
-    return {
-      id: page.id,
-      name: getText(props['Name']),
-      sourceUrl: getUrl(props['Source URL']),
-      status: getSelect(props['Status']),
-      dateIngested: getDate(props['Date ingested']),
-      linkedEntityIds: getRelationIds(props['Linked Entities']),
-      url: page.url,
-    }
-  })
+export function normalizeKnowledgePage(
+  page: PageObjectResponse,
+  sourceLabels: Map<string, string> = new Map(),
+): KnowledgeNode {
+  const props = page.properties
+  const sourceIds = getRelationIds(props['Source material'] ?? props['Source Material'] ?? props['Sources'])
+  const lastUpdatedProperty = props['Last updated'] ?? props['Last Updated']
 
   return {
-    recentConcepts,
-    unprocessedSources,
+    id: page.id,
+    concept: getText(props['Concept'] ?? props['Name']) || getTitleFromPage(page),
+    category: getSelect(props['Category']),
+    lastUpdated: getPropertyValue(lastUpdatedProperty) ?? page.last_edited_time,
+    lastEditedAt: page.last_edited_time,
+    relatedIds: getRelationIds(props['Related concepts'] ?? props['Related Concepts'] ?? props['Related']),
+    sourceMaterials: sourceIds.map(id => sourceLabels.get(id) ?? id),
+    truthChecked: normalizeTruthCheck(props['Truth-Checked'] ?? props['Truth Checked'] ?? props['Verified']),
+    url: page.url,
+  }
+}
+
+function normalizeRawSource(page: PageObjectResponse): RawSource {
+  const props = page.properties
+  return {
+    id: page.id,
+    name: getText(props['Name'] ?? props['Title']) || getTitleFromPage(page),
+    sourceUrl: getUrl(props['Source URL'] ?? props['URL']),
+    status: getPropertyValue(props['Status']),
+    dateIngested: getDate(props['Date ingested'] ?? props['Date Ingested']),
+    linkedEntityIds: getRelationIds(props['Linked Entities'] ?? props['Knowledge Graph']),
+    url: page.url,
+  }
+}
+
+export async function fetchKnowledgeGraphIndex(): Promise<KnowledgeNode[]> {
+  const [knowledgePages, rawSourcePages] = await Promise.all([
+    queryAll(notionSecondBrain, NOTION_DB.knowledgeGraph),
+    queryAll(notionSecondBrain, NOTION_DB.rawSources),
+  ])
+  const rawSources = rawSourcePages.map(normalizeRawSource)
+  const sourceLabels = new Map(rawSources.map(source => [source.id, source.name || source.sourceUrl || source.id]))
+
+  return knowledgePages
+    .map(page => normalizeKnowledgePage(page, sourceLabels))
+    .filter(node => Boolean(node.concept.trim()))
+}
+
+export async function fetchSecondBrainData(): Promise<SecondBrainData> {
+  const [nodes, rawSourcePages] = await Promise.all([
+    fetchKnowledgeGraphIndex(),
+    queryAll(notionSecondBrain, NOTION_DB.rawSources),
+  ])
+  const rawSources = rawSourcePages.map(normalizeRawSource)
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - 14)
+
+  return {
+    recentConcepts: nodes
+      .filter(node => new Date(node.lastEditedAt).getTime() >= cutoff.getTime())
+      .sort((a, b) => b.lastEditedAt.localeCompare(a.lastEditedAt))
+      .slice(0, 20),
+    unprocessedSources: rawSources.filter(source => source.status?.toLowerCase() === 'unprocessed'),
     fetchedAt: new Date().toISOString(),
   }
 }
