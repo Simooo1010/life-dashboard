@@ -49,12 +49,12 @@ export default async function LifeOsPage() {
         <section className="space-y-3">
           <p className="section-label">Principi Chiave</p>
           <div className="card divide-y divide-border -my-px">
-            {data.coreBoundaries.map((boundary, i) => (
+            {data.items.slice(0, 8).map((item, i) => (
               <div key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
                 <span className="text-xs font-mono text-ink-faint w-4 shrink-0 text-right mt-0.5">
                   {i + 1}.
                 </span>
-                <p className="text-sm text-ink leading-relaxed">{boundary}</p>
+                <p className="text-sm text-ink leading-relaxed">{item.title}</p>
               </div>
             ))}
           </div>
@@ -64,13 +64,13 @@ export default async function LifeOsPage() {
         <section className="space-y-3">
           <p className="section-label">Regole Operative</p>
           <div className="space-y-3">
-            {data.operatingRules.map((rule, idx) => (
+            {data.sources.map((rule, idx) => (
               <div key={idx} className="card space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <Sparkles size={13} className="text-ink-muted" />
-                  <p className="text-sm font-semibold text-ink">{rule.title}</p>
+                  <p className="text-sm font-semibold text-ink">{rule.label}</p>
                 </div>
-                <p className="text-xs text-ink-muted leading-relaxed">{rule.content}</p>
+                <p className="text-xs text-ink-muted leading-relaxed">{rule.message ?? rule.state}</p>
               </div>
             ))}
           </div>

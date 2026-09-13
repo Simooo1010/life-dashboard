@@ -8,6 +8,8 @@ import { generateDailySynthesis, computeInputHash, type AllSourceData, type Dail
 import { db, runMigrations } from '@/db'
 import { dailySyntheses } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { loadDailyContext } from '@/lib/daily-context/service'
+import { getContextualSecondBrain } from '@/lib/second-brain/service'
 
 export interface OrchestratorResult {
   synthesis: DailySynthesis
@@ -47,6 +49,8 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
   const calendarData = calendar.status === 'fulfilled' ? calendar.value : emptyCalendarData()
   const secondBrainData = secondBrain.status === 'fulfilled' ? secondBrain.value : emptySecondBrainData()
   const weatherData = weatherResult.status === 'fulfilled' ? weatherResult.value : null
+  const dailyContext = await loadDailyContext({ calendar: calendarData })
+  const contextualSecondBrain = await getContextualSecondBrain(dailyContext.context)
 
   // Correlate calendar with weather
   const weatherSignals = weatherData ? correlateCalendarWithWeather(calendarData.todayEvents, weatherData) : null
@@ -56,6 +60,8 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
     calendar: calendarData,
     secondBrain: secondBrainData,
     weather: weatherSignals ?? undefined,
+    dailyContext: dailyContext.context,
+    contextualSecondBrain,
   }
 
   const newHash = computeInputHash(sourceData)

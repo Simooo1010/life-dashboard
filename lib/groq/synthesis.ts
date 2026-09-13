@@ -4,8 +4,10 @@ import { createHash } from 'crypto'
 import type { SecondBrainData } from '@/lib/notion/second-brain'
 import type { CalendarData } from '@/lib/calendar/google'
 import type { WeatherContextSignals } from '@/lib/weather/correlation'
+import type { DailyContext } from '@/lib/daily-context/types'
+import type { SecondBrainResult } from '@/lib/second-brain/types'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+function getGroq() { return new Groq({ apiKey: process.env.GROQ_API_KEY ?? '' }) }
 
 type GroqReasoningRequest = ChatCompletionCreateParamsNonStreaming & {
   reasoning_effort: 'none' | 'low'
@@ -38,6 +40,8 @@ export interface AllSourceData {
   secondBrain: SecondBrainData
   weather?: WeatherContextSignals
   date: string
+  dailyContext?: DailyContext
+  contextualSecondBrain?: SecondBrainResult
 }
 
 // ─── Hash computation ─────────────────────────────────────────────────────────
@@ -49,12 +53,15 @@ export function computeInputHash(data: AllSourceData): string {
     recentConcepts: data.secondBrain.recentConcepts.map(c => c.concept).slice(0, 10).sort(),
     unprocessedCount: data.secondBrain.unprocessedSources.length,
     weatherSummary: data.weather?.summaryForAI ?? '',
+    contextHash: data.dailyContext?.contextHash ?? '',
+    recommendationIds: data.contextualSecondBrain?.relevantToday.map(item => item.id) ?? [],
   })
   return createHash('sha256').update(payload).digest('hex')
 }
 
 // ─── Synthesis generator ──────────────────────────────────────────────────────
 export async function generateDailySynthesis(data: AllSourceData): Promise<DailySynthesis> {
+  const groq = getGroq()
   const inputHash = computeInputHash(data)
   const todayFormatted = new Date(data.date + 'T12:00:00').toLocaleDateString('it-IT', {
     weekday: 'long',
