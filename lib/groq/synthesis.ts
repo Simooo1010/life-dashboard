@@ -1,10 +1,17 @@
 import Groq from 'groq-sdk'
+import type { ChatCompletionCreateParamsNonStreaming } from 'groq-sdk/resources/chat/completions'
 import { createHash } from 'crypto'
 import type { SecondBrainData } from '@/lib/notion/second-brain'
 import type { CalendarData } from '@/lib/calendar/google'
 import type { WeatherContextSignals } from '@/lib/weather/correlation'
+import type { LifeOsOverview } from '@/lib/life-os/types'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+type GroqReasoningRequest = ChatCompletionCreateParamsNonStreaming & {
+  reasoning_effort: 'none' | 'low'
+  reasoning_format: 'hidden'
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface DailyPriority {
@@ -32,6 +39,7 @@ export interface AllSourceData {
   secondBrain: SecondBrainData
   weather?: WeatherContextSignals
   date: string
+  lifeOs?: LifeOsOverview
 }
 
 // ─── Hash computation ─────────────────────────────────────────────────────────
@@ -43,6 +51,7 @@ export function computeInputHash(data: AllSourceData): string {
     recentConcepts: data.secondBrain.recentConcepts.map(c => c.concept).slice(0, 10).sort(),
     unprocessedCount: data.secondBrain.unprocessedSources.length,
     weatherSummary: data.weather?.summaryForAI ?? '',
+    lifeOs: data.lifeOs ? { today: data.lifeOs.today.map(i => `${i.title}|${i.date}|${i.status}`), tomorrow: data.lifeOs.tomorrow.map(i => `${i.title}|${i.date}|${i.status}`), nextSevenDays: data.lifeOs.nextSevenDays.map(d => `${d.date}|${d.items.length}`), anomalies: data.lifeOs.anomalies.map(a => `${a.code}|${a.itemId ?? ''}`) } : null,
   })
   return createHash('sha256').update(payload).digest('hex')
 }
@@ -66,19 +75,21 @@ EVENTI PROSSIMI (7 GIORNI): ${JSON.stringify(data.calendar.upcomingEvents.slice(
 CONCETTI RECENTI NEL SECONDO CERVELLO: ${data.secondBrain.recentConcepts.map(c => c.concept).join(', ')}
 FONTI SECONDO CERVELLO NON PROCESSATE: ${data.secondBrain.unprocessedSources.length}
 CONTESTO METEO ED EFFETTO SUGLI IMPEGNI: ${data.weather?.summaryForAI ?? 'Dati meteo non disponibili.'}
+LIFE OS (SCUOLA E ALTRE AREE): ${data.lifeOs ? JSON.stringify({ today: data.lifeOs.today, tomorrow: data.lifeOs.tomorrow, school: data.lifeOs.school, otherAreas: data.lifeOs.otherAreas, anomalies: data.lifeOs.anomalies }) : 'Dati Life OS non disponibili.'}
 
 Elenca in modo conciso (bullet points) le 3-5 informazioni più importanti per la giornata. Sii chiaro, diretto, senza enfasi drammatica o urgenza artificiosa.
 
 REGOLA FONDAMENTALE: basati ESCLUSIVAMENTE sui dati elencati sopra. Non inventare eventi, impegni o attività (es. una passeggiata, un'uscita, una commissione) che non siano esplicitamente presenti in EVENTI CALENDARIO OGGI o EVENTI PROSSIMI. Se il meteo ha un impatto pratico, collegalo SOLO a un evento realmente elencato in EVENTI CALENDARIO OGGI, citando il suo orario. Se EVENTI CALENDARIO OGGI è vuoto o nessun evento presente è esposto al meteo (spostamento, attività all'aperto), dillo esplicitamente ("nessun impegno oggi risente del meteo") invece di inventare uno scenario plausibile.`
 
-  const factsResponse = await groq.chat.completions.create({
+  const factsRequest: GroqReasoningRequest = {
     model: 'qwen/qwen3.8-27b',
     messages: [{ role: 'user', content: factsPrompt }],
     max_tokens: 600,
     temperature: 0.3,
     reasoning_effort: 'low',
     reasoning_format: 'hidden',
-  })
+  }
+  const factsResponse = await groq.chat.completions.create(factsRequest)
 
   const keyFacts = factsResponse.choices[0]?.message?.content ?? ''
 
@@ -114,7 +125,7 @@ Genera un JSON valido con questa struttura esatta:
 
 Rispondi rigorosamente SOLO con il JSON, senza testo o blocchi markdown attorno.`
 
-  const synthesisResponse = await groq.chat.completions.create({
+  const synthesisRequest: GroqReasoningRequest = {
     model: 'qwen/qwen3.8-27b',
     messages: [{ role: 'user', content: synthesisPrompt }],
     max_tokens: 850,
@@ -122,7 +133,8 @@ Rispondi rigorosamente SOLO con il JSON, senza testo o blocchi markdown attorno.
     response_format: { type: 'json_object' },
     reasoning_effort: 'none',
     reasoning_format: 'hidden',
-  })
+  }
+  const synthesisResponse = await groq.chat.completions.create(synthesisRequest)
 
   const raw = synthesisResponse.choices[0]?.message?.content ?? '{}'
   const parsed = JSON.parse(raw)

@@ -8,6 +8,9 @@ import { generateDailySynthesis, computeInputHash, type AllSourceData, type Dail
 import { db, runMigrations } from '@/db'
 import { dailySyntheses } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { fetchLifeOsData } from '@/lib/notion/life-os'
+import { buildLifeOsOverview } from '@/lib/life-os/interpret'
+import type { LifeOsSnapshot, LifeOsOverview } from '@/lib/life-os/types'
 
 export interface OrchestratorResult {
   synthesis: DailySynthesis
@@ -37,14 +40,17 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
 
   const date = getTodayStr()
 
-  // Fetch all sources in parallel (Calendar, Second Brain, Weather)
-  const [calendar, secondBrain, weatherResult] = await Promise.allSettled([
+  // Fetch all sources in parallel (Calendar, Life OS, Second Brain, Weather)
+  const [calendar, lifeOs, secondBrain, weatherResult] = await Promise.allSettled([
     fetchCalendarData(),
+    fetchLifeOsData(),
     fetchSecondBrainData(),
     fetchWeatherData(),
   ])
 
   const calendarData = calendar.status === 'fulfilled' ? calendar.value : emptyCalendarData()
+  const lifeOsSnapshot: LifeOsSnapshot = lifeOs.status === 'fulfilled' ? lifeOs.value : emptyLifeOsSnapshot()
+  const lifeOsOverview: LifeOsOverview = buildLifeOsOverview(lifeOsSnapshot, calendarData, { now: new Date(), timeZone: process.env.LIFE_OS_TIMEZONE ?? 'Europe/Rome' })
   const secondBrainData = secondBrain.status === 'fulfilled' ? secondBrain.value : emptySecondBrainData()
   const weatherData = weatherResult.status === 'fulfilled' ? weatherResult.value : null
 
@@ -56,6 +62,7 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
     calendar: calendarData,
     secondBrain: secondBrainData,
     weather: weatherSignals ?? undefined,
+    lifeOs: lifeOsOverview,
   }
 
   const newHash = computeInputHash(sourceData)
@@ -147,4 +154,7 @@ function emptyCalendarData() {
 }
 function emptySecondBrainData() {
   return { recentConcepts: [], unprocessedSources: [], fetchedAt: new Date().toISOString() }
+}
+function emptyLifeOsSnapshot(): LifeOsSnapshot {
+  return { title: 'Life OS', items: [], schedule: [], sources: [{ source: 'notion', label: 'Notion · Life OS', state: 'unavailable', checkedAt: new Date().toISOString(), message: 'Source unavailable' }], pageUrl: process.env.NOTION_LIFE_OS_PAGE_URL ?? '', fetchedAt: new Date().toISOString() }
 }

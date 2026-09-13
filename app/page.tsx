@@ -10,6 +10,7 @@ import { isFinanceConfigured } from '@/lib/finance/client'
 import { fetchFinanceSnapshot } from '@/lib/finance/snapshot'
 import { getFinanceInsights } from '@/lib/groq/finance-insights'
 import type { FinanceSnapshot } from '@/lib/finance/types'
+import { LifeOsPulse } from '@/components/home/LifeOsPulse'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -73,6 +74,8 @@ export default async function HomePage() {
             todayEvents={sourceData.calendar.todayEvents}
           />
         )}
+
+        <LifeOsPulse overview={sourceData?.lifeOs} />
 
         {/* ─── AI Priorities ────────────────────────────────────── */}
         {synthesis?.priorities && synthesis.priorities.length > 0 && (
