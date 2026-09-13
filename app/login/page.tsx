@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -22,16 +20,20 @@ export default function LoginPage() {
       })
 
       if (res.ok) {
-        router.push('/')
-        router.refresh()
-      } else {
-        const data = await res.json()
-        setError(data.error ?? 'Accesso non riuscito')
-        setPassword('')
+        // Full navigation instead of router.push: the dashboard does a slow
+        // server-side data fetch, and a client-side push here would race
+        // with the auth cookie/session and can get silently aborted. Keep
+        // the button in its loading state until the browser navigates away.
+        window.location.href = '/'
+        return
       }
+
+      const data = await res.json()
+      setError(data.error ?? 'Accesso non riuscito')
+      setPassword('')
+      setLoading(false)
     } catch {
       setError('Errore di rete')
-    } finally {
       setLoading(false)
     }
   }
