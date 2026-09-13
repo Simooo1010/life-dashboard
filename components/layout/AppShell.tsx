@@ -11,12 +11,14 @@ import {
   Newspaper,
   Settings,
   LogOut,
+  Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { href: '/',               icon: Home,       label: 'Oggi' },
   { href: '/calendar',       icon: Calendar,   label: 'Calendario' },
+  { href: '/finance',        icon: Wallet,     label: 'Finanze' },
   { href: '/weather',        icon: CloudSun,   label: 'Meteo' },
   { href: '/life-os',        icon: BookOpen,   label: 'Life OS' },
   { href: '/second-brain',   icon: Brain,      label: 'Secondo Cervello' },

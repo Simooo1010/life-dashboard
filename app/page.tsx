@@ -4,10 +4,31 @@ import { WeatherSection } from '@/components/home/WeatherSection'
 import { TimelineSection } from '@/components/home/TimelineSection'
 import { PrioritiesSection } from '@/components/home/PrioritiesSection'
 import { SecondBrainSection } from '@/components/home/SecondBrainSection'
+import { FinanceSection } from '@/components/home/FinanceSection'
 import { runDailyOrchestrator } from '@/lib/orchestrator/daily-sync'
+import { isFinanceConfigured } from '@/lib/finance/client'
+import { fetchFinanceSnapshot } from '@/lib/finance/snapshot'
+import { getFinanceInsights } from '@/lib/groq/finance-insights'
+import type { FinanceSnapshot } from '@/lib/finance/types'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+async function loadFinanceHomeData() {
+  const configured = isFinanceConfigured()
+  if (!configured) return { configured: false, snapshot: null, observations: null }
+
+  let snapshot: FinanceSnapshot | null = null
+  let observations: string[] | null = null
+  try {
+    snapshot = await fetchFinanceSnapshot()
+    const insights = await getFinanceInsights(snapshot, 'compact')
+    observations = insights?.observations ?? null
+  } catch (error) {
+    console.error('[HomePage][Finance]', error)
+  }
+  return { configured, snapshot, observations }
+}
 
 export default async function HomePage() {
   let data
@@ -17,6 +38,8 @@ export default async function HomePage() {
     console.error('[HomePage]', error)
     data = null
   }
+
+  const finance = await loadFinanceHomeData()
 
   const synthesis = data?.synthesis
   const sourceData = data?.sourceData
@@ -64,6 +87,13 @@ export default async function HomePage() {
             insight={synthesis?.secondBrainInsight}
           />
         )}
+
+        {/* ─── Finance pulse ────────────────────────────────────── */}
+        <FinanceSection
+          snapshot={finance.snapshot}
+          observations={finance.observations}
+          configured={finance.configured}
+        />
 
         {/* ─── Newsletter note ──────────────────────────────────── */}
         {synthesis?.newsletterNote && (
