@@ -12,7 +12,7 @@ function isRealMovement(t: RawTransaction): boolean {
   return !t.title.endsWith('-transfer]')
 }
 
-function computePeriodStats(transactions: RawTransaction[], defaultWallet: string): FinancePeriodStats {
+export function computePeriodStats(transactions: RawTransaction[], defaultWallet: string): FinancePeriodStats {
   const real = transactions.filter(isRealMovement)
   let income = 0
   let expense = 0
@@ -30,7 +30,7 @@ function computePeriodStats(transactions: RawTransaction[], defaultWallet: strin
   }
 }
 
-function buildSnapshot(wallets: RawWallet[], transactions: RawTransaction[]): FinanceSnapshot {
+export function buildSnapshot(wallets: RawWallet[], transactions: RawTransaction[]): FinanceSnapshot {
   const defaultWallet = wallets.find(w => w.position === 0)?.slug ?? DEFAULT_WALLET
   const walletSlugs = wallets.map(w => w.slug)
   const walletNameBySlug = new Map(wallets.map(w => [w.slug, w.name]))
