@@ -11,6 +11,8 @@ import { eq, desc } from 'drizzle-orm'
 import { fetchLifeOsData } from '@/lib/notion/life-os'
 import { buildLifeOsOverview } from '@/lib/life-os/interpret'
 import type { LifeOsSnapshot, LifeOsOverview } from '@/lib/life-os/types'
+import { loadDailyContext } from '@/lib/daily-context/service'
+import { getContextualSecondBrain } from '@/lib/second-brain/service'
 
 export interface OrchestratorResult {
   synthesis: DailySynthesis
@@ -53,6 +55,8 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
   const lifeOsOverview: LifeOsOverview = buildLifeOsOverview(lifeOsSnapshot, calendarData, { now: new Date(), timeZone: process.env.LIFE_OS_TIMEZONE ?? 'Europe/Rome' })
   const secondBrainData = secondBrain.status === 'fulfilled' ? secondBrain.value : emptySecondBrainData()
   const weatherData = weatherResult.status === 'fulfilled' ? weatherResult.value : null
+  const dailyContext = await loadDailyContext({ calendar: calendarData, lifeOs: lifeOsOverview })
+  const contextualSecondBrain = await getContextualSecondBrain(dailyContext.context)
 
   // Correlate calendar with weather
   const weatherSignals = weatherData ? await correlateCalendarWithWeather(calendarData.todayEvents, weatherData) : null
@@ -63,6 +67,8 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
     secondBrain: secondBrainData,
     weather: weatherSignals ?? undefined,
     lifeOs: lifeOsOverview,
+    dailyContext: dailyContext.context,
+    contextualSecondBrain,
   }
 
   const newHash = computeInputHash(sourceData)

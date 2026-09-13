@@ -3,7 +3,7 @@ import type { ChatCompletionCreateParamsNonStreaming } from 'groq-sdk/resources/
 import type { NormalizedWeatherData } from '@/lib/weather/types'
 import type { WeatherContextSignals } from '@/lib/weather/correlation'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+function getGroq() { return new Groq({ apiKey: process.env.GROQ_API_KEY ?? '' }) }
 
 type GroqReasoningRequest = ChatCompletionCreateParamsNonStreaming & {
   reasoning_effort: 'none'
@@ -19,6 +19,7 @@ export async function generateWeatherSummary(
   signals?: WeatherContextSignals,
 ): Promise<string | null> {
   if (!process.env.GROQ_API_KEY) return null
+  const groq = getGroq()
 
   if (cachedSummary && cachedForFetchedAt === weather.fetchedAt) {
     return cachedSummary

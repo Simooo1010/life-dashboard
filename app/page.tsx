@@ -97,9 +97,7 @@ export default async function HomePage() {
         {/* ─── Second Brain pulse ───────────────────────────────── */}
         {sourceData && (
           <SecondBrainSection
-            recentConcepts={sourceData.secondBrain.recentConcepts}
-            unprocessedCount={sourceData.secondBrain.unprocessedSources.length}
-            insight={synthesis?.secondBrainInsight}
+            recommendations={sourceData.contextualSecondBrain?.relevantToday.slice(0, 2) ?? []}
           />
         )}
 

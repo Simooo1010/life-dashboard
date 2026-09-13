@@ -5,6 +5,8 @@ import type { SecondBrainData } from '@/lib/notion/second-brain'
 import type { CalendarData } from '@/lib/calendar/google'
 import type { WeatherContextSignals } from '@/lib/weather/correlation'
 import type { LifeOsOverview } from '@/lib/life-os/types'
+import type { DailyContext } from '@/lib/daily-context/types'
+import type { SecondBrainResult } from '@/lib/second-brain/types'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
@@ -40,6 +42,8 @@ export interface AllSourceData {
   weather?: WeatherContextSignals
   date: string
   lifeOs?: LifeOsOverview
+  dailyContext?: DailyContext
+  contextualSecondBrain?: SecondBrainResult
 }
 
 // ─── Hash computation ─────────────────────────────────────────────────────────
@@ -51,6 +55,8 @@ export function computeInputHash(data: AllSourceData): string {
     recentConcepts: data.secondBrain.recentConcepts.map(c => c.concept).slice(0, 10).sort(),
     unprocessedCount: data.secondBrain.unprocessedSources.length,
     weatherSummary: data.weather?.summaryForAI ?? '',
+    contextHash: data.dailyContext?.contextHash ?? '',
+    recommendationIds: data.contextualSecondBrain?.relevantToday.map(item => item.id) ?? [],
     lifeOs: data.lifeOs ? { today: data.lifeOs.today.map(i => `${i.title}|${i.date}|${i.status}`), tomorrow: data.lifeOs.tomorrow.map(i => `${i.title}|${i.date}|${i.status}`), nextSevenDays: data.lifeOs.nextSevenDays.map(d => `${d.date}|${d.items.length}`), anomalies: data.lifeOs.anomalies.map(a => `${a.code}|${a.itemId ?? ''}`) } : null,
   })
   return createHash('sha256').update(payload).digest('hex')
