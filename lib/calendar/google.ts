@@ -21,16 +21,20 @@ export interface CalendarEvent {
 
 // ─── Category classifier ───────────────────────────────────────────────────────
 const SPORT_KEYWORDS = ['pallavolo', 'volleyball', 'allenamento', 'partita', 'gara', 'sport', 'palestra', 'gym', 'corsa', 'piscina']
-const SCHOOL_KEYWORDS = ['scuola', 'lezione', 'verifica', 'compito', 'interrogazione', 'esame', 'school', 'class', 'test', 'lecture', 'liceo', 'studio']
+const SCHOOL_KEYWORDS = ['scuola', 'lezione', 'verifica', 'compito', 'interrogazione', 'esame', 'school', 'class', 'lecture', 'liceo', 'studio']
 const HEALTH_KEYWORDS = ['medico', 'dottore', 'dentista', 'visita', 'doctor', 'appointment', 'health', 'salute']
 const NEWSLETTER_KEYWORDS = ['newsletter', 'articolo', 'article', 'writing', 'scrittura', 'publish', 'bozza']
 
+function matchesKeyword(text: string, keyword: string): boolean {
+  return new RegExp(`\\b${keyword}\\b`, 'i').test(text)
+}
+
 function classifyEvent(title: string, description?: string): EventCategory {
-  const text = `${title} ${description ?? ''}`.toLowerCase()
-  if (SPORT_KEYWORDS.some(k => text.includes(k))) return 'sport'
-  if (SCHOOL_KEYWORDS.some(k => text.includes(k))) return 'school'
-  if (HEALTH_KEYWORDS.some(k => text.includes(k))) return 'health'
-  if (NEWSLETTER_KEYWORDS.some(k => text.includes(k))) return 'newsletter'
+  const text = `${title} ${description ?? ''}`
+  if (SPORT_KEYWORDS.some(k => matchesKeyword(text, k))) return 'sport'
+  if (SCHOOL_KEYWORDS.some(k => matchesKeyword(text, k))) return 'school'
+  if (HEALTH_KEYWORDS.some(k => matchesKeyword(text, k))) return 'health'
+  if (NEWSLETTER_KEYWORDS.some(k => matchesKeyword(text, k))) return 'newsletter'
   return 'other'
 }
 
