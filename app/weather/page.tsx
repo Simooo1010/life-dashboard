@@ -58,7 +58,7 @@ export default async function WeatherPage() {
     if (weatherRes.status === 'fulfilled') {
       weather = weatherRes.value
       const events = calendarRes.status === 'fulfilled' ? calendarRes.value.todayEvents : []
-      signals = correlateCalendarWithWeather(events, weather)
+      signals = await correlateCalendarWithWeather(events, weather)
       aiSummary = await generateWeatherSummary(weather, signals)
     }
   } catch (error) {

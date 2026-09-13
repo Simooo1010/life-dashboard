@@ -1,5 +1,6 @@
 import type { CalendarEvent } from '@/lib/calendar/google'
-import type { NormalizedWeatherData, HourlyForecastEntry } from './types'
+import type { NormalizedWeatherData } from './types'
+import { correlateEventsWithWeatherAI } from '@/lib/groq/event-weather-correlation'
 
 export interface EventWeatherImpact {
   eventId: string
@@ -20,17 +21,10 @@ export interface WeatherContextSignals {
   summaryForAI: string
 }
 
-function parseHourFromIso(isoString: string): number | null {
-  if (!isoString.includes('T')) return null
-  const timePart = isoString.split('T')[1]
-  if (!timePart) return null
-  return parseInt(timePart.slice(0, 2), 10)
-}
-
-export function correlateCalendarWithWeather(
+export async function correlateCalendarWithWeather(
   events: CalendarEvent[],
   weather: NormalizedWeatherData,
-): WeatherContextSignals {
+): Promise<WeatherContextSignals> {
   const todayMax = weather.todayMax
   const todayMin = weather.todayMin
   const currentWind = weather.current.windSpeed
@@ -58,47 +52,12 @@ export function correlateCalendarWithWeather(
   else if (maxRainProb >= 40) rainRisk = 'moderate'
   else if (maxRainProb >= 20) rainRisk = 'low'
 
-  // Correlate with today's calendar events
-  const eventAlerts: EventWeatherImpact[] = []
-
-  for (const event of events) {
-    if (event.isAllDay) continue
-    const startHour = parseHourFromIso(event.start)
-    if (startHour === null) continue
-
-    // Find matching hourly forecasts (startHour and startHour + 1)
-    const matchingHourly = weather.hourly.filter(h => h.hour >= startHour && h.hour <= startHour + 2)
-    if (matchingHourly.length === 0) continue
-
-    const peakRainProb = Math.max(...matchingHourly.map(h => h.rainProbability), 0)
-    const peakTemp = Math.max(...matchingHourly.map(h => h.temperature), 0)
-    const rainCondition = matchingHourly.find(h => h.condition.includes('rain') || h.condition === 'thunderstorm')
-
-    // Scenario 1: Rain overlapping with event / travel
-    if (peakRainProb >= 45 || rainCondition) {
-      const isThunderstorm = rainCondition?.condition === 'thunderstorm'
-      eventAlerts.push({
-        eventId: event.id,
-        eventTitle: event.title,
-        timeString: `${startHour}:00`,
-        severity: isThunderstorm || peakRainProb >= 70 ? 'critical' : 'warning',
-        message: isThunderstorm
-          ? `Temporale o forti precipitazioni previste in concomitanza (${startHour}:00). Tragitto da proteggere.`
-          : `Rischio pioggia significativo (${peakRainProb}%) attorno alle ${startHour}:00. Attenzione a spostamenti o attività all'aperto.`,
-      })
-    }
-
-    // Scenario 2: Heat peak during sport / training
-    if (event.category === 'sport' && peakTemp >= 29) {
-      eventAlerts.push({
-        eventId: event.id,
-        eventTitle: event.title,
-        timeString: `${startHour}:00`,
-        severity: peakTemp >= 33 ? 'warning' : 'info',
-        message: `Temperatura elevata (~${peakTemp}°C) nelle ore dell'attività sportiva. Idratazione e gestione energetica prioritarie.`,
-      })
-    }
-  }
+  // Correlate with today's calendar events — judged by an AI pass over each
+  // event's actual title/notes/location against the real weather numbers,
+  // rather than a fixed "this category always means outdoors" rule. This
+  // avoids false alerts on indoor events (lessons, calls, appointments) and
+  // adapts to whatever wording the event actually uses.
+  const eventAlerts = await correlateEventsWithWeatherAI(events, weather)
 
   // Determine overall weather relevance
   let weatherRelevance: WeatherContextSignals['weatherRelevance'] = 'low'
