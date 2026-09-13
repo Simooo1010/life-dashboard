@@ -4,6 +4,7 @@ import { createHash } from 'crypto'
 import type { SecondBrainData } from '@/lib/notion/second-brain'
 import type { CalendarData } from '@/lib/calendar/google'
 import type { WeatherContextSignals } from '@/lib/weather/correlation'
+import type { LifeOsOverview } from '@/lib/life-os/types'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
@@ -38,6 +39,7 @@ export interface AllSourceData {
   secondBrain: SecondBrainData
   weather?: WeatherContextSignals
   date: string
+  lifeOs?: LifeOsOverview
 }
 
 // ─── Hash computation ─────────────────────────────────────────────────────────
@@ -49,6 +51,7 @@ export function computeInputHash(data: AllSourceData): string {
     recentConcepts: data.secondBrain.recentConcepts.map(c => c.concept).slice(0, 10).sort(),
     unprocessedCount: data.secondBrain.unprocessedSources.length,
     weatherSummary: data.weather?.summaryForAI ?? '',
+    lifeOs: data.lifeOs ? { today: data.lifeOs.today.map(i => `${i.title}|${i.date}|${i.status}`), tomorrow: data.lifeOs.tomorrow.map(i => `${i.title}|${i.date}|${i.status}`), nextSevenDays: data.lifeOs.nextSevenDays.map(d => `${d.date}|${d.items.length}`), anomalies: data.lifeOs.anomalies.map(a => `${a.code}|${a.itemId ?? ''}`) } : null,
   })
   return createHash('sha256').update(payload).digest('hex')
 }
@@ -72,6 +75,7 @@ EVENTI PROSSIMI (7 GIORNI): ${JSON.stringify(data.calendar.upcomingEvents.slice(
 CONCETTI RECENTI NEL SECONDO CERVELLO: ${data.secondBrain.recentConcepts.map(c => c.concept).join(', ')}
 FONTI SECONDO CERVELLO NON PROCESSATE: ${data.secondBrain.unprocessedSources.length}
 CONTESTO METEO ED EFFETTO SUGLI IMPEGNI: ${data.weather?.summaryForAI ?? 'Dati meteo non disponibili.'}
+LIFE OS (SCUOLA E ALTRE AREE): ${data.lifeOs ? JSON.stringify({ today: data.lifeOs.today, tomorrow: data.lifeOs.tomorrow, school: data.lifeOs.school, otherAreas: data.lifeOs.otherAreas, anomalies: data.lifeOs.anomalies }) : 'Dati Life OS non disponibili.'}
 
 Elenca in modo conciso (bullet points) le 3-5 informazioni più importanti per la giornata. Sii chiaro, diretto, senza enfasi drammatica o urgenza artificiosa.
 

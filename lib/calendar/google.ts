@@ -98,6 +98,8 @@ export interface CalendarData {
   todayEvents: CalendarEvent[]
   upcomingEvents: CalendarEvent[]  // next 7 days, excluding today
   fetchedAt: string
+  availability?: 'available' | 'unavailable'
+  error?: string
 }
 
 export async function fetchCalendarData(): Promise<CalendarData> {
@@ -105,19 +107,19 @@ export async function fetchCalendarData(): Promise<CalendarData> {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const todayStr = todayStart.toISOString().split('T')[0]
   const tomorrowStr = new Date(todayStart.getTime() + 86400000).toISOString().split('T')[0]
-  const in8DaysStr = new Date(todayStart.getTime() + 8 * 86400000).toISOString().split('T')[0]
+  const in7DaysStr = new Date(todayStart.getTime() + 7 * 86400000).toISOString().split('T')[0]
 
   const icalUrl = process.env.GOOGLE_CALENDAR_ICAL_URL
   if (!icalUrl) {
     console.warn('[fetchCalendarData] GOOGLE_CALENDAR_ICAL_URL non impostato in .env.local')
-    return { todayEvents: [], upcomingEvents: [], fetchedAt: new Date().toISOString() }
+    return { todayEvents: [], upcomingEvents: [], fetchedAt: new Date().toISOString(), availability: 'unavailable', error: 'Feed Calendar non configurato.' }
   }
 
   try {
-    const res = await fetch(icalUrl, { next: { revalidate: 300 } })
+    const res = await fetch(icalUrl, { cache: 'no-store' })
     if (!res.ok) {
       console.warn(`[fetchCalendarData] Fetch iCal fallito con status: ${res.status}`)
-      return { todayEvents: [], upcomingEvents: [], fetchedAt: new Date().toISOString() }
+      return { todayEvents: [], upcomingEvents: [], fetchedAt: new Date().toISOString(), availability: 'unavailable', error: `Feed Calendar non disponibile (${res.status}).` }
     }
 
     const text = await res.text()
@@ -133,13 +135,13 @@ export async function fetchCalendarData(): Promise<CalendarData> {
     const upcomingEvents = allEvents
       .filter(e => {
         const day = e.isAllDay ? e.start : e.start.split('T')[0]
-        return day >= tomorrowStr && day <= in8DaysStr
+        return day >= tomorrowStr && day <= in7DaysStr
       })
       .sort((a, b) => a.start.localeCompare(b.start))
 
-    return { todayEvents, upcomingEvents, fetchedAt: new Date().toISOString() }
+    return { todayEvents, upcomingEvents, fetchedAt: new Date().toISOString(), availability: 'available' }
   } catch (err) {
     console.error('[fetchCalendarData] Errore fetch/parsing iCal:', err)
-    return { todayEvents: [], upcomingEvents: [], fetchedAt: new Date().toISOString() }
+    return { todayEvents: [], upcomingEvents: [], fetchedAt: new Date().toISOString(), availability: 'unavailable', error: 'Errore durante la lettura del feed Calendar.' }
   }
 }
