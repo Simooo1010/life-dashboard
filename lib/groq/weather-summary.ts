@@ -1,8 +1,14 @@
 import Groq from 'groq-sdk'
+import type { ChatCompletionCreateParamsNonStreaming } from 'groq-sdk/resources/chat/completions'
 import type { NormalizedWeatherData } from '@/lib/weather/types'
 import type { WeatherContextSignals } from '@/lib/weather/correlation'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+type GroqReasoningRequest = ChatCompletionCreateParamsNonStreaming & {
+  reasoning_effort: 'none'
+  reasoning_format: 'hidden'
+}
 
 // ─── Memory cache (keyed on fetchedAt, since weather itself is cached 20min) ──
 let cachedSummary: string | null = null
@@ -54,14 +60,15 @@ ${alertsText}
 Scrivi il riepilogo in massimo 3 frasi, senza markdown, senza elenchi, senza premesse tipo "Ecco il riepilogo". Se rilevante, menziona un cambiamento significativo durante la giornata (es. arrivo di pioggia, picco di caldo) e l'andamento nei prossimi giorni, sempre basandoti solo sui dati sopra.`
 
   try {
-    const response = await groq.chat.completions.create({
+    const request: GroqReasoningRequest = {
       model: 'qwen/qwen3.8-27b',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 220,
       temperature: 0.3,
       reasoning_effort: 'none',
       reasoning_format: 'hidden',
-    })
+    }
+    const response = await groq.chat.completions.create(request)
 
     const summary = response.choices[0]?.message?.content?.trim() ?? null
     if (!summary) return null

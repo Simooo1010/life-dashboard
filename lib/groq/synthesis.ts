@@ -1,10 +1,16 @@
 import Groq from 'groq-sdk'
+import type { ChatCompletionCreateParamsNonStreaming } from 'groq-sdk/resources/chat/completions'
 import { createHash } from 'crypto'
 import type { SecondBrainData } from '@/lib/notion/second-brain'
 import type { CalendarData } from '@/lib/calendar/google'
 import type { WeatherContextSignals } from '@/lib/weather/correlation'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+type GroqReasoningRequest = ChatCompletionCreateParamsNonStreaming & {
+  reasoning_effort: 'none' | 'low'
+  reasoning_format: 'hidden'
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface DailyPriority {
@@ -69,14 +75,15 @@ CONTESTO METEO ED EFFETTO SUGLI IMPEGNI: ${data.weather?.summaryForAI ?? 'Dati m
 
 Elenca in modo conciso (bullet points) le 3-5 informazioni più importanti per la giornata. Sii chiaro, diretto, senza enfasi drammatica o urgenza artificiosa. Se il meteo ha un impatto pratico su impegni (es. pioggia all'uscita o caldo prima dello sport), segnalalo concretamente.`
 
-  const factsResponse = await groq.chat.completions.create({
+  const factsRequest: GroqReasoningRequest = {
     model: 'qwen/qwen3.8-27b',
     messages: [{ role: 'user', content: factsPrompt }],
     max_tokens: 600,
     temperature: 0.3,
     reasoning_effort: 'low',
     reasoning_format: 'hidden',
-  })
+  }
+  const factsResponse = await groq.chat.completions.create(factsRequest)
 
   const keyFacts = factsResponse.choices[0]?.message?.content ?? ''
 
@@ -111,7 +118,7 @@ Genera un JSON valido con questa struttura esatta:
 
 Rispondi rigorosamente SOLO con il JSON, senza testo o blocchi markdown attorno.`
 
-  const synthesisResponse = await groq.chat.completions.create({
+  const synthesisRequest: GroqReasoningRequest = {
     model: 'qwen/qwen3.8-27b',
     messages: [{ role: 'user', content: synthesisPrompt }],
     max_tokens: 850,
@@ -119,7 +126,8 @@ Rispondi rigorosamente SOLO con il JSON, senza testo o blocchi markdown attorno.
     response_format: { type: 'json_object' },
     reasoning_effort: 'none',
     reasoning_format: 'hidden',
-  })
+  }
+  const synthesisResponse = await groq.chat.completions.create(synthesisRequest)
 
   const raw = synthesisResponse.choices[0]?.message?.content ?? '{}'
   const parsed = JSON.parse(raw)
