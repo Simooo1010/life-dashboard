@@ -25,9 +25,9 @@ interface WeatherSectionProps {
 function getWeatherIcon(condition: string, size = 16, className = '') {
   switch (condition) {
     case 'clear':
-      return <Sun size={size} className={`text-amber-500 ${className}`} />
+      return <Sun size={size} className={`text-amber-500 dark:text-amber-400 ${className}`} />
     case 'partly_cloudy':
-      return <CloudSun size={size} className={`text-amber-600/80 ${className}`} />
+      return <CloudSun size={size} className={`text-amber-600/80 dark:text-amber-400/80 ${className}`} />
     case 'cloudy':
       return <Cloud size={size} className={`text-ink-muted ${className}`} />
     case 'fog':
@@ -35,13 +35,13 @@ function getWeatherIcon(condition: string, size = 16, className = '') {
     case 'light_rain':
     case 'moderate_rain':
     case 'heavy_rain':
-      return <CloudRain size={size} className={`text-blue-500 ${className}`} />
+      return <CloudRain size={size} className={`text-blue-500 dark:text-blue-400 ${className}`} />
     case 'thunderstorm':
-      return <CloudLightning size={size} className={`text-purple-600 ${className}`} />
+      return <CloudLightning size={size} className={`text-purple-600 dark:text-purple-400 ${className}`} />
     case 'snow':
       return <CloudSnow size={size} className={`text-blue-300 ${className}`} />
     default:
-      return <CloudSun size={size} className={`text-amber-600 ${className}`} />
+      return <CloudSun size={size} className={`text-amber-600 dark:text-amber-400 ${className}`} />
   }
 }
 
@@ -97,7 +97,7 @@ export function WeatherSection({ weather, weatherSignals, weatherNote }: Weather
           <div className="text-right hidden sm:block">
             <div className="flex items-center justify-end gap-3 text-2xs text-ink-muted">
               <span className="inline-flex items-center gap-1">
-                <Droplets size={11} className="text-blue-500" />
+                <Droplets size={11} className="text-blue-500 dark:text-blue-400" />
                 {current.humidity}%
               </span>
               <span className="inline-flex items-center gap-1">
@@ -134,8 +134,8 @@ export function WeatherSection({ weather, weatherSignals, weatherNote }: Weather
                     <span
                       className={`text-2xs font-medium px-1.5 py-0.5 rounded ${
                         period.rainProbability >= 60
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-blue-50 text-blue-700'
+                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
+                          : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
                       }`}
                     >
                       {period.rainProbability}%
@@ -157,14 +157,14 @@ export function WeatherSection({ weather, weatherSignals, weatherNote }: Weather
                 key={idx}
                 className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs leading-relaxed ${
                   alert.severity === 'critical'
-                    ? 'bg-rose-50/70 border-rose-200/80 text-rose-900'
-                    : 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+                    ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200/80 dark:border-rose-900/50 text-rose-900 dark:text-rose-300'
+                    : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200/80 dark:border-amber-900/50 text-amber-900 dark:text-amber-300'
                 }`}
               >
                 {alert.severity === 'critical' ? (
-                  <AlertTriangle size={14} className="text-rose-600 shrink-0 mt-0.5" />
+                  <AlertTriangle size={14} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 ) : (
-                  <Info size={14} className="text-amber-700 shrink-0 mt-0.5" />
+                  <Info size={14} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1">
                   <span className="font-semibold">{alert.eventTitle}: </span>

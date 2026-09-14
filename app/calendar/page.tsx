@@ -91,7 +91,7 @@ export default async function CalendarPage() {
 
         {!data && (
           <div className="card text-center py-8">
-            <p className="text-sm text-red-600">Calendario non disponibile.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">Calendario non disponibile.</p>
             <p className="text-xs text-ink-faint mt-1">Controlla la configurazione Google Calendar.</p>
           </div>
         )}

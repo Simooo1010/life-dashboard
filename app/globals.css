@@ -6,6 +6,31 @@
   :root {
     --font-sans: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+    /* Warm neutral palette — space-separated RGB so Tailwind's opacity
+       modifiers (e.g. bg-canvas/50) keep working. These flip in the
+       dark media query below, so every bg-canvas/text-ink/etc usage in
+       the app is dark-mode-aware without needing a dark: variant. */
+    --color-canvas: 247 245 242;
+    --color-surface: 238 235 230;
+    --color-border: 221 217 210;
+    --color-ink: 26 24 22;
+    --color-ink-muted: 107 101 96;
+    --color-ink-faint: 160 155 149;
+    --color-accent: 201 103 26;
+    --color-accent-soft: 245 230 214;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-canvas: 24 23 26;
+      --color-surface: 34 32 39;
+      --color-border: 46 44 51;
+      --color-ink: 240 237 232;
+      --color-ink-muted: 157 154 162;
+      --color-ink-faint: 94 92 101;
+      --color-accent-soft: 58 35 20;
+    }
   }
 
   html {
@@ -16,7 +41,7 @@
   }
 
   body {
-    @apply bg-canvas text-ink font-sans dark:bg-canvas-dark dark:text-ink-dark;
+    @apply bg-canvas text-ink font-sans;
     min-height: 100dvh;
   }
 
@@ -29,10 +54,10 @@
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full dark:bg-border-dark;
+    @apply bg-border rounded-full;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-ink-faint dark:bg-ink-faint-dark;
+    @apply bg-ink-faint;
   }
 
   /* Focus ring */
@@ -48,7 +73,7 @@
   .cat-health     { @apply text-semantic-health }
   .cat-finance    { @apply text-semantic-finance }
   .cat-newsletter { @apply text-semantic-newsletter }
-  .cat-other      { @apply text-ink-muted dark:text-ink-muted-dark }
+  .cat-other      { @apply text-ink-muted }
 
   .cat-school-bg     { @apply bg-blue-50 dark:bg-blue-950/40 }
   .cat-sport-bg      { @apply bg-green-50 dark:bg-green-950/40 }
@@ -59,11 +84,11 @@
 
   /* Card */
   .card {
-    @apply bg-white border border-border rounded-2xl p-5 shadow-sm dark:bg-surface-dark dark:border-border-dark;
+    @apply bg-white dark:bg-surface border border-border rounded-2xl p-5 shadow-sm;
   }
 
   /* Section heading */
   .section-label {
-    @apply text-xs font-semibold tracking-wider uppercase text-ink-muted dark:text-ink-muted-dark;
+    @apply text-xs font-semibold tracking-wider uppercase text-ink-muted;
   }
 }

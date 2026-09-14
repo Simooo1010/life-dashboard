@@ -24,9 +24,9 @@ export const dynamic = 'force-dynamic'
 function getWeatherIcon(condition: string, size = 16, className = '') {
   switch (condition) {
     case 'clear':
-      return <Sun size={size} className={`text-amber-500 ${className}`} />
+      return <Sun size={size} className={`text-amber-500 dark:text-amber-400 ${className}`} />
     case 'partly_cloudy':
-      return <CloudSun size={size} className={`text-amber-600/80 ${className}`} />
+      return <CloudSun size={size} className={`text-amber-600/80 dark:text-amber-400/80 ${className}`} />
     case 'cloudy':
       return <Cloud size={size} className={`text-ink-muted ${className}`} />
     case 'fog':
@@ -34,13 +34,13 @@ function getWeatherIcon(condition: string, size = 16, className = '') {
     case 'light_rain':
     case 'moderate_rain':
     case 'heavy_rain':
-      return <CloudRain size={size} className={`text-blue-500 ${className}`} />
+      return <CloudRain size={size} className={`text-blue-500 dark:text-blue-400 ${className}`} />
     case 'thunderstorm':
-      return <CloudLightning size={size} className={`text-purple-600 ${className}`} />
+      return <CloudLightning size={size} className={`text-purple-600 dark:text-purple-400 ${className}`} />
     case 'snow':
       return <CloudSnow size={size} className={`text-blue-300 ${className}`} />
     default:
-      return <CloudSun size={size} className={`text-amber-600 ${className}`} />
+      return <CloudSun size={size} className={`text-amber-600 dark:text-amber-400 ${className}`} />
   }
 }
 
@@ -71,7 +71,7 @@ export default async function WeatherPage() {
         <div className="max-w-2xl mx-auto px-4 md:px-8 py-8">
           <h1 className="text-xl font-semibold text-ink mb-4">Meteo</h1>
           <div className="card text-center py-8">
-            <p className="text-sm text-red-600">Dati meteo non disponibili al momento.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">Dati meteo non disponibili al momento.</p>
             <p className="text-xs text-ink-faint mt-1">Verifica la connessione di rete.</p>
           </div>
         </div>
@@ -104,9 +104,9 @@ export default async function WeatherPage() {
 
         {/* ─── AI Summary ─────────────────────────────────────────── */}
         {aiSummary && (
-          <div className="card bg-amber-50/50 border-amber-200/80 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-              <Sparkles size={15} className="text-amber-600" />
+          <div className="card bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+              <Sparkles size={15} className="text-amber-600 dark:text-amber-400" />
             </div>
             <p className="text-sm text-ink leading-relaxed">{aiSummary}</p>
           </div>
@@ -136,7 +136,7 @@ export default async function WeatherPage() {
 
             <div className="space-y-1 text-right text-xs text-ink-muted">
               <p className="flex items-center justify-end gap-1.5">
-                <Droplets size={13} className="text-blue-500" />
+                <Droplets size={13} className="text-blue-500 dark:text-blue-400" />
                 <span>Umidità {current.humidity}%</span>
               </p>
               <p className="flex items-center justify-end gap-1.5">
@@ -157,14 +157,14 @@ export default async function WeatherPage() {
                   key={i}
                   className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
                     alert.severity === 'critical'
-                      ? 'bg-rose-50/80 border-rose-200 text-rose-900'
-                      : 'bg-amber-50/80 border-amber-200 text-amber-900'
+                      ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-300'
+                      : 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-300'
                   }`}
                 >
                   {alert.severity === 'critical' ? (
-                    <AlertTriangle size={15} className="text-rose-600 shrink-0 mt-0.5" />
+                    <AlertTriangle size={15} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   ) : (
-                    <Info size={15} className="text-amber-700 shrink-0 mt-0.5" />
+                    <Info size={15} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                   )}
                   <div>
                     <span className="font-semibold">{alert.eventTitle} ({alert.timeString}): </span>
@@ -192,7 +192,7 @@ export default async function WeatherPage() {
                     {period.temperature}°
                   </span>
                   {period.rainProbability > 10 && (
-                    <span className="text-2xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                    <span className="text-2xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded">
                       {period.rainProbability}% pioggia
                     </span>
                   )}
@@ -222,7 +222,7 @@ export default async function WeatherPage() {
                   </span>
                   <span
                     className={`text-2xs tabular-nums font-medium ${
-                      entry.rainProbability >= 40 ? 'text-blue-600' : 'text-ink-faint'
+                      entry.rainProbability >= 40 ? 'text-blue-600 dark:text-blue-400' : 'text-ink-faint'
                     }`}
                   >
                     {entry.rainProbability > 0 ? `${entry.rainProbability}%` : '—'}
@@ -253,7 +253,7 @@ export default async function WeatherPage() {
                 </div>
 
                 {day.rainProbability > 20 && (
-                  <span className="text-2xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded shrink-0">
+                  <span className="text-2xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded shrink-0">
                     {day.rainProbability}%
                   </span>
                 )}

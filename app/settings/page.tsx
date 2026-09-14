@@ -54,7 +54,7 @@ export default function SettingsPage() {
               {syncing ? 'Sincronizzazione…' : 'Forza sync'}
             </button>
             {syncResult && (
-              <p className="text-xs text-green-700 flex items-center gap-1">
+              <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
                 <CheckCircle size={12} />
                 {syncResult}
               </p>
@@ -77,7 +77,7 @@ export default function SettingsPage() {
           <div className="card">
             <button
               onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-700 transition-colors font-medium"
+              className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors font-medium"
             >
               Esci dalla dashboard
             </button>

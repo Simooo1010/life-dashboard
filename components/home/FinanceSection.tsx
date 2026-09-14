@@ -42,7 +42,7 @@ export function FinanceSection({ snapshot, observations, configured }: FinanceSe
             {snapshot.last7Days.savingsRate !== null && (
               <div className="text-right">
                 <p className="text-2xs text-ink-faint">Risparmio 7gg</p>
-                <p className={`text-sm font-semibold tabular-nums ${snapshot.last7Days.savingsRate >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                <p className={`text-sm font-semibold tabular-nums ${snapshot.last7Days.savingsRate >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                   {snapshot.last7Days.savingsRate.toFixed(0)}%
                 </p>
               </div>
@@ -62,15 +62,15 @@ export function FinanceSection({ snapshot, observations, configured }: FinanceSe
                       {tx.isTransfer ? (
                         <ArrowLeftRight size={12} className="text-ink-faint shrink-0" />
                       ) : tx.type === 'income' ? (
-                        <ArrowUpRight size={12} className="text-emerald-600 shrink-0" />
+                        <ArrowUpRight size={12} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                       ) : (
-                        <ArrowDownRight size={12} className="text-rose-500 shrink-0" />
+                        <ArrowDownRight size={12} className="text-rose-500 dark:text-rose-400 shrink-0" />
                       )}
                       <span className="text-ink truncate">{tx.title || tx.walletName}</span>
                     </div>
                     <span
                       className={`tabular-nums font-medium shrink-0 ${
-                        tx.isTransfer ? 'text-ink-faint' : tx.type === 'income' ? 'text-emerald-700' : 'text-ink-muted'
+                        tx.isTransfer ? 'text-ink-faint' : tx.type === 'income' ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink-muted'
                       }`}
                     >
                       {tx.type === 'income' ? '+' : '−'}{formatEuro(tx.amount)}

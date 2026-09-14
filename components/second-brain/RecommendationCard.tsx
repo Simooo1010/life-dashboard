@@ -9,7 +9,7 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({ recommendation, compact = false }: RecommendationCardProps) {
   return (
-    <article className={compact ? 'rounded-2xl border border-border/80 bg-white/60 p-4' : 'card space-y-4'}>
+    <article className={compact ? 'rounded-2xl border border-border/80 bg-white/60 dark:bg-surface/60 p-4' : 'card space-y-4'}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {recommendation.category && (
@@ -48,7 +48,7 @@ export function RecommendationCard({ recommendation, compact = false }: Recommen
           )}
           {recommendation.sourceMaterials[0] && <span>Fonte: {recommendation.sourceMaterials[0]}</span>}
           {recommendation.truthChecked === 'verified' && (
-            <span className="inline-flex items-center gap-1.5 text-green-700"><CheckCircle2 size={12} />Verificato</span>
+            <span className="inline-flex items-center gap-1.5 text-green-700 dark:text-green-400"><CheckCircle2 size={12} />Verificato</span>
           )}
         </div>
       )}

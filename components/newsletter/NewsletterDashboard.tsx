@@ -67,10 +67,10 @@ function Pulse({ state, events }: { state: NewsletterProjectState; events: Calen
     ['Ultimo cambiamento', state.pulse.latestMeaningfulChange], ['Prossima tappa', state.pulse.nextMilestone],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]))
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-amber-200/80 bg-white shadow-sm">
+    <section className="relative overflow-hidden rounded-3xl border border-amber-200/80 dark:border-amber-900/40 bg-white dark:bg-surface shadow-sm">
       <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-amber-300 via-orange-500 to-amber-700" />
       <div className="p-5 pl-7 md:p-7 md:pl-9">
-        <p className="mb-5 font-mono text-2xs uppercase tracking-[0.18em] text-amber-700">Project pulse / live</p>
+        <p className="mb-5 font-mono text-2xs uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">Project pulse / live</p>
         <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
           {fields.map(([label, value], index) => (
             <div key={label} className={index === 2 ? 'sm:col-span-2' : ''}>
@@ -83,7 +83,7 @@ function Pulse({ state, events }: { state: NewsletterProjectState; events: Calen
           <div className="mt-6 border-t border-border pt-5">
             <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-ink-faint">Dal calendario</p>
             <div className="flex flex-wrap gap-2">
-              {events.slice(0, 3).map(event => <span key={event.id} className="rounded-full bg-amber-50 px-3 py-1.5 text-xs text-amber-900">{event.title} · {new Date(`${event.start.split('T')[0]}T12:00:00`).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>)}
+              {events.slice(0, 3).map(event => <span key={event.id} className="rounded-full bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-300">{event.title} · {new Date(`${event.start.split('T')[0]}T12:00:00`).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</span>)}
             </div>
           </div>
         )}
@@ -98,11 +98,11 @@ export function NewsletterDashboard({ state, events }: { state: NewsletterProjec
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-8 md:px-8 md:py-10">
       <header className="flex items-start justify-between gap-5">
         <div>
-          <p className="mb-2 font-mono text-2xs uppercase tracking-[0.18em] text-amber-700">Newsletter / project control</p>
+          <p className="mb-2 font-mono text-2xs uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">Newsletter / project control</p>
           <h1 className="text-2xl font-semibold tracking-tight text-ink md:text-3xl">{state.projectName}</h1>
           <p className="mt-2 text-sm text-ink-muted">Ciò che conta adesso, interpretato dalla fonte di verità.</p>
         </div>
-        <a href={state.source.pageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-amber-300 hover:text-ink">
+        <a href={state.source.pageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-white dark:bg-surface px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-amber-300 hover:text-ink">
           Notion <ExternalLink size={12} />
         </a>
       </header>

@@ -31,7 +31,7 @@ export function LifeOsItemRow({ item, compact = false }: { item: OperationalItem
 
   return (
     <div className="group flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-semantic-school">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40 text-semantic-school">
         <Icon size={14} aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
@@ -45,7 +45,7 @@ export function LifeOsItemRow({ item, compact = false }: { item: OperationalItem
           </p>
         )}
         {item.issues.length > 0 && (
-          <p className="mt-1 text-xs text-amber-700">{item.issues[0].message}</p>
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{item.issues[0].message}</p>
         )}
       </div>
       {item.sourceUrl && (

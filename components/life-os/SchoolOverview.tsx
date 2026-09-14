@@ -39,7 +39,7 @@ export function SchoolOverview({ school }: { school: SchoolOverviewData }) {
                 {school.workload.map(day => (
                   <div key={day.date} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
                     <span className="text-2xs tabular-nums text-ink-faint">{day.count || '–'}</span>
-                    <div className="flex h-10 w-full items-end overflow-hidden rounded-md bg-white">
+                    <div className="flex h-10 w-full items-end overflow-hidden rounded-md bg-white dark:bg-white/10">
                       <div className="w-full rounded-md bg-semantic-school/75" style={{ height: `${Math.max(day.score > 0 ? 18 : 0, (day.score / maxScore) * 100)}%` }} />
                     </div>
                     <span className="text-2xs capitalize text-ink-muted">{formatDate(day.date, { weekday: 'short' }).replace('.', '')}</span>

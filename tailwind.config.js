@@ -13,31 +13,23 @@ module.exports = {
         mono: ['var(--font-mono)', 'monospace'],
       },
       colors: {
-        // Warm neutral palette — calm, editorial
-        canvas: {
-          DEFAULT: '#F7F5F2',
-          dark: '#18171A',
-        },
-        surface: {
-          DEFAULT: '#EEEBE6',
-          dark: '#222027',
-        },
-        border: {
-          DEFAULT: '#DDD9D2',
-          dark: '#2E2C33',
-        },
+        // Warm neutral palette — calm, editorial.
+        // Values come from CSS custom properties (see globals.css) that
+        // flip under `prefers-color-scheme: dark`, so every usage of
+        // these tokens is automatically dark-mode-aware — no `dark:`
+        // variant needed at the call site. The `<alpha-value>` hook
+        // keeps Tailwind's opacity modifiers (e.g. bg-canvas/50) working.
+        canvas: 'rgb(var(--color-canvas) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        border: 'rgb(var(--color-border) / <alpha-value>)',
         ink: {
-          DEFAULT: '#1A1816',
-          muted: '#6B6560',
-          faint: '#A09B95',
-          dark: '#F0EDE8',
-          'muted-dark': '#9D9AA2',
-          'faint-dark': '#5E5C65',
+          DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
+          muted: 'rgb(var(--color-ink-muted) / <alpha-value>)',
+          faint: 'rgb(var(--color-ink-faint) / <alpha-value>)',
         },
         accent: {
-          DEFAULT: '#C9671A',   // warm amber — primary action
-          soft: '#F5E6D6',     // accent tint for light
-          'soft-dark': '#3A2314',
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',   // warm amber — primary action
+          soft: 'rgb(var(--color-accent-soft) / <alpha-value>)', // accent tint
         },
         semantic: {
           school: '#3B6FD4',   // blue — academic

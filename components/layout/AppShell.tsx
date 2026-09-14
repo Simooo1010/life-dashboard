@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-ink-muted hover:bg-red-50 hover:text-red-600 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-ink-muted hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
           >
             <LogOut size={16} strokeWidth={2} />
             Esci
@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* ─── Mobile bottom bar ─────────────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border flex items-center justify-around px-2 py-2 safe-area-bottom dark:bg-surface-dark dark:border-border-dark">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface border-t border-border flex items-center justify-around px-2 py-2 safe-area-bottom">
         {NAV_ITEMS.slice(0, 5).map(({ href, icon: Icon, label }) => {
           const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (

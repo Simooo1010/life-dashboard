@@ -63,7 +63,7 @@ export default async function FinancePage() {
         <div className="max-w-2xl mx-auto px-4 md:px-8 py-8">
           <h1 className="text-xl font-semibold text-ink mb-4">Finanze</h1>
           <div className="card text-center py-8">
-            <p className="text-sm text-red-600">Dati finanziari non disponibili al momento.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">Dati finanziari non disponibili al momento.</p>
             <p className="text-xs text-ink-faint mt-1">Il Personal Finance Tracker potrebbe essere temporaneamente irraggiungibile.</p>
           </div>
         </div>
@@ -98,19 +98,19 @@ export default async function FinancePage() {
 
         {/* ─── AI interpretation ──────────────────────────────────── */}
         {observations && observations.length > 0 && (
-          <div className="card bg-purple-50/40 border-purple-200/70 space-y-2.5">
+          <div className="card bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/70 dark:border-purple-900/40 space-y-2.5">
             <p className="text-2xs uppercase tracking-wider font-semibold text-ink-muted flex items-center gap-1.5">
-              <Sparkles size={13} className="text-purple-600" /> Interpretazione AI
+              <Sparkles size={13} className="text-purple-600 dark:text-purple-400" /> Interpretazione AI
             </p>
             <ul className="space-y-1.5">
               {observations.map((obs, i) => (
                 <li key={i} className="text-sm text-ink leading-relaxed flex gap-2">
-                  <span className="text-purple-500">·</span>
+                  <span className="text-purple-500 dark:text-purple-400">·</span>
                   <span>{obs}</span>
                 </li>
               ))}
             </ul>
-            <p className="text-2xs text-ink-faint pt-1 border-t border-purple-200/50">
+            <p className="text-2xs text-ink-faint pt-1 border-t border-purple-200/50 dark:border-purple-900/30">
               Interpretazione generata dall&apos;AI sui dati reali sottostanti — non è consulenza finanziaria.
             </p>
           </div>
@@ -133,15 +133,15 @@ export default async function FinancePage() {
                 <div key={label} className="space-y-1">
                   <p className="text-2xs uppercase tracking-wider text-ink-faint font-medium">{label}</p>
                   <div className="flex items-center gap-1.5 text-xs">
-                    <ArrowUpRight size={12} className="text-emerald-600" />
+                    <ArrowUpRight size={12} className="text-emerald-600 dark:text-emerald-400" />
                     <span className="text-ink-muted tabular-nums">{formatEuro(stats.income)}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs">
-                    <ArrowDownRight size={12} className="text-rose-500" />
+                    <ArrowDownRight size={12} className="text-rose-500 dark:text-rose-400" />
                     <span className="text-ink-muted tabular-nums">{formatEuro(stats.expense)}</span>
                   </div>
                   {stats.savingsRate !== null && (
-                    <p className={`text-xs font-semibold tabular-nums ${stats.savingsRate >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <p className={`text-xs font-semibold tabular-nums ${stats.savingsRate >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                       {stats.savingsRate.toFixed(0)}% risparmiato
                     </p>
                   )}
@@ -180,11 +180,11 @@ export default async function FinancePage() {
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div>
                   <p className="text-2xs text-ink-faint">Crediti attivi</p>
-                  <p className="text-lg font-semibold text-emerald-700 tabular-nums">{formatEuro(snapshot.debts.totalCredits)}</p>
+                  <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{formatEuro(snapshot.debts.totalCredits)}</p>
                 </div>
                 <div>
                   <p className="text-2xs text-ink-faint">Debiti attivi</p>
-                  <p className="text-lg font-semibold text-rose-700 tabular-nums">{formatEuro(snapshot.debts.totalDebts)}</p>
+                  <p className="text-lg font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{formatEuro(snapshot.debts.totalDebts)}</p>
                 </div>
               </div>
               <div className="space-y-1.5 pt-2 border-t border-border">
@@ -193,7 +193,7 @@ export default async function FinancePage() {
                     <span className="text-ink-muted truncate">
                       {d.type === 'to_me' ? 'Da' : 'Verso'} <span className="text-ink font-medium">{d.person}</span> — {d.desc}
                     </span>
-                    <span className={`tabular-nums font-medium shrink-0 ml-2 ${d.type === 'to_me' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <span className={`tabular-nums font-medium shrink-0 ml-2 ${d.type === 'to_me' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                       {formatEuro(d.amount)}
                     </span>
                   </div>
@@ -217,9 +217,9 @@ export default async function FinancePage() {
                     {tx.isTransfer ? (
                       <ArrowLeftRight size={13} className="text-ink-faint" />
                     ) : tx.type === 'income' ? (
-                      <ArrowUpRight size={13} className="text-emerald-600" />
+                      <ArrowUpRight size={13} className="text-emerald-600 dark:text-emerald-400" />
                     ) : (
-                      <ArrowDownRight size={13} className="text-rose-500" />
+                      <ArrowDownRight size={13} className="text-rose-500 dark:text-rose-400" />
                     )}
                   </div>
                   <div className="min-w-0">
@@ -229,7 +229,7 @@ export default async function FinancePage() {
                 </div>
                 <span
                   className={`text-sm tabular-nums font-medium shrink-0 ${
-                    tx.isTransfer ? 'text-ink-faint' : tx.type === 'income' ? 'text-emerald-700' : 'text-ink'
+                    tx.isTransfer ? 'text-ink-faint' : tx.type === 'income' ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink'
                   }`}
                 >
                   {tx.type === 'income' ? '+' : '−'}{formatEuro(tx.amount)}
