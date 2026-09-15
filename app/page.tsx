@@ -22,6 +22,7 @@ import {
 } from '@/lib/cache/dashboard-data'
 import type { LifeOsOverview } from '@/lib/life-os/types'
 import type { SecondBrainResult } from '@/lib/second-brain/types'
+import { HomeSectionFallback } from '@/components/home/HomeSectionFallback'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -80,19 +81,6 @@ async function loadSecondBrainHomeData(): Promise<SecondBrainResult | null> {
     console.error('[HomePage][SecondBrain]', error)
     return null
   }
-}
-
-function HomeSectionFallback({ label, tall = false }: { label: string; tall?: boolean }) {
-  return (
-    <section aria-busy="true" aria-label={`${label} in caricamento`} className="space-y-3">
-      <p className="section-label">{label}</p>
-      <div className={`card overflow-hidden ${tall ? 'h-44' : 'h-28'}`}>
-        <div className="h-3 w-1/3 rounded-full bg-border animate-pulse" />
-        <div className="mt-4 h-2 w-full rounded-full bg-border/70 animate-pulse" />
-        <div className="mt-2 h-2 w-4/5 rounded-full bg-border/70 animate-pulse" />
-      </div>
-    </section>
-  )
 }
 
 async function DailyHomeContent({ dataPromise }: { dataPromise: Promise<OrchestratorResult | null> }) {
@@ -175,7 +163,7 @@ export default function HomePage() {
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 space-y-10">
-        <Suspense fallback={<HomeSectionFallback label="La tua giornata" tall />}>
+        <Suspense fallback={<HomeSectionFallback label="La tua giornata" heading="Ciao, Simone." tall />}>
           <DailyHomeContent dataPromise={loads.daily} />
         </Suspense>
 
