@@ -7,6 +7,7 @@ import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
 import { runDailyOrchestrator } from '@/lib/orchestrator/daily-sync'
 import { getContextualSecondBrain } from '@/lib/second-brain/service'
 import { fetchWeatherData } from '@/lib/weather/client'
+import { recordSyncRun } from '@/lib/sync/log'
 import { DASHBOARD_CACHE_TAGS } from './tags'
 
 export { DASHBOARD_CACHE_TAGS, invalidateDashboardCache } from './tags'
@@ -30,19 +31,19 @@ export const loadCachedDailyDashboard = unstable_cache(
 )
 
 export const loadCachedCalendar = unstable_cache(
-  fetchCalendarData,
+  () => recordSyncRun('calendar', 'auto', fetchCalendarData),
   ['dashboard-calendar-v1'],
   { revalidate: 60, tags: [sharedTag, DASHBOARD_CACHE_TAGS.calendar] },
 )
 
 export const loadCachedFinanceSnapshot = unstable_cache(
-  () => fetchFinanceSnapshot(false),
+  () => recordSyncRun('finance', 'auto', () => fetchFinanceSnapshot(false)),
   ['dashboard-finance-v1'],
   { revalidate: 300, tags: [sharedTag, DASHBOARD_CACHE_TAGS.finance] },
 )
 
 export const loadCachedLifeOsOverview = unstable_cache(
-  fetchLifeOsOverview,
+  () => recordSyncRun('life-os', 'auto', fetchLifeOsOverview),
   ['dashboard-life-os-v1'],
   {
     revalidate: 300,
@@ -51,19 +52,19 @@ export const loadCachedLifeOsOverview = unstable_cache(
 )
 
 export const loadCachedNewsletter = unstable_cache(
-  () => fetchNewsletterProjectState(),
+  () => recordSyncRun('newsletter', 'auto', () => fetchNewsletterProjectState()),
   ['dashboard-newsletter-v1'],
   { revalidate: 300, tags: [sharedTag, DASHBOARD_CACHE_TAGS.newsletter] },
 )
 
 export const loadCachedWeather = unstable_cache(
-  fetchWeatherData,
+  () => recordSyncRun('weather', 'auto', fetchWeatherData),
   ['dashboard-weather-v1'],
   { revalidate: 600, tags: [sharedTag, DASHBOARD_CACHE_TAGS.weather] },
 )
 
 export const loadCachedSecondBrainPage = unstable_cache(
-  async () => {
+  () => recordSyncRun('second-brain', 'auto', async () => {
     const calendar = await loadCachedCalendar()
     const lifeOs = await loadCachedLifeOsOverview()
     const context = await loadDailyContext({ calendar, lifeOs, includeNewsletter: false })
@@ -89,7 +90,7 @@ export const loadCachedSecondBrainPage = unstable_cache(
         },
       }
     }
-  },
+  }),
   ['dashboard-second-brain-v1'],
   {
     revalidate: 300,

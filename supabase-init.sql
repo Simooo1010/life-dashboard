@@ -54,3 +54,25 @@ create policy "Allow anon access for second brain runs"
   on second_brain_runs for all using (true) with check (true);
 create policy "Allow anon access for second brain history"
   on second_brain_history for all using (true) with check (true);
+
+-- ==============================================================================
+-- Sync log: history of every automatic (cache-triggered) and manual sync run
+-- ==============================================================================
+create table if not exists sync_log (
+  id bigint generated always as identity primary key,
+  source text not null,
+  trigger text not null,
+  status text not null,
+  started_at timestamp with time zone not null,
+  finished_at timestamp with time zone not null,
+  duration_ms integer not null,
+  detail text,
+  error_message text
+);
+
+create index if not exists sync_log_started_at_idx on sync_log (started_at desc);
+
+alter table sync_log enable row level security;
+
+create policy "Allow anon access for sync log"
+  on sync_log for all using (true) with check (true);

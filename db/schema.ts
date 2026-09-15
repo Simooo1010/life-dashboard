@@ -46,8 +46,22 @@ export const secondBrainHistory = sqliteTable('second_brain_history', {
   datePageUnique: uniqueIndex('second_brain_history_date_page_unique').on(table.date, table.pageId),
 }))
 
+// ─── Sync log ────────────────────────────────────────────────────────────────
+export const syncLog = sqliteTable('sync_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  source: text('source').notNull(),
+  trigger: text('trigger').notNull(),
+  status: text('status').notNull(),
+  startedAt: text('started_at').notNull(),
+  finishedAt: text('finished_at').notNull(),
+  durationMs: integer('duration_ms').notNull(),
+  detail: text('detail'),
+  errorMessage: text('error_message'),
+})
+
 export type DailySynthesisRow = typeof dailySyntheses.$inferSelect
 export type DayHistoryRow = typeof dayHistory.$inferSelect
 export type KnowledgeContentCacheRow = typeof knowledgeContentCache.$inferSelect
 export type SecondBrainRunRow = typeof secondBrainRuns.$inferSelect
 export type SecondBrainHistoryRow = typeof secondBrainHistory.$inferSelect
+export type SyncLogRow = typeof syncLog.$inferSelect

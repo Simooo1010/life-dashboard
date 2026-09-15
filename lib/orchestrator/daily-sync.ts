@@ -15,6 +15,7 @@ import { loadDailyContext } from '@/lib/daily-context/service'
 import { getContextualSecondBrain } from '@/lib/second-brain/service'
 import type { SecondBrainResult } from '@/lib/second-brain/types'
 import { selectDailyPersistenceBackend } from './persistence'
+import { recordSyncRun, type SyncSource, type SyncTrigger } from '@/lib/sync/log'
 
 export interface OrchestratorResult {
   synthesis: DailySynthesis
@@ -23,6 +24,11 @@ export interface OrchestratorResult {
   weatherSignals: WeatherContextSignals | null
   fromCache: boolean
   cacheAge?: number
+}
+
+export interface OrchestratorOptions {
+  trigger?: SyncTrigger
+  onProgress?: (source: SyncSource, status: 'done' | 'error', detail?: string) => void
 }
 
 function getTodayStr(): string {
@@ -40,19 +46,37 @@ async function ensureMigrations() {
   }
 }
 
-export async function runDailyOrchestrator(forceRefresh = false): Promise<OrchestratorResult> {
+export async function runDailyOrchestrator(
+  forceRefresh = false,
+  options: OrchestratorOptions = {},
+): Promise<OrchestratorResult> {
   await ensureMigrations()
 
   const date = getTodayStr()
+  const trigger: SyncTrigger = options.trigger ?? (forceRefresh ? 'manual' : 'auto')
+  const track = <T,>(source: SyncSource, fn: () => Promise<T>): Promise<T> =>
+    recordSyncRun(source, trigger, fn)
+      .then(result => {
+        options.onProgress?.(source, 'done')
+        return result
+      })
+      .catch(error => {
+        options.onProgress?.(source, 'error', error instanceof Error ? error.message : String(error))
+        throw error
+      })
 
-  // Fetch all sources in parallel (Calendar, Life OS, Second Brain, Weather)
-  const lifeOsRequest = forceRefresh ? fetchLifeOsData() : Promise.resolve(emptyLifeOsSnapshot())
-  const secondBrainRequest = forceRefresh ? fetchSecondBrainBundle() : Promise.resolve(null)
+  // Fetch all sources in parallel (Calendar, Life OS, Second Brain, Weather).
+  // Always fetched live (not just on forceRefresh) so a normal page load never
+  // falls back to an empty Life OS/Second Brain snapshot — the surrounding
+  // unstable_cache wrapper (see lib/cache/dashboard-data.ts) already bounds how
+  // often this actually runs.
+  const lifeOsRequest = track('life-os', fetchLifeOsData)
+  const secondBrainRequest = track('second-brain', fetchSecondBrainBundle)
   const [calendar, lifeOs, secondBrain, weatherResult] = await Promise.allSettled([
-    fetchCalendarData(),
+    track('calendar', fetchCalendarData),
     lifeOsRequest,
     secondBrainRequest,
-    fetchWeatherData(),
+    track('weather', fetchWeatherData),
   ])
 
   const calendarData = calendar.status === 'fulfilled' ? calendar.value : emptyCalendarData()
@@ -131,7 +155,7 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
 
   // ─── Generate new synthesis ───────────────────────────────────────────────
   const synthesis = forceRefresh
-    ? await generateDailySynthesis(sourceData)
+    ? await recordSyncRun('synthesis', trigger, () => generateDailySynthesis(sourceData))
     : buildFastDailySynthesis(sourceData)
 
   // ─── Cache persist ────────────────────────────────────────────────────────

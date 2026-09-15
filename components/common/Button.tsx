@@ -1,30 +1,6 @@
 'use client'
 
-import { RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-interface RefreshButtonProps {
-  onClick: () => void
-  loading?: boolean
-  className?: string
-  label?: string
-}
-
-export function RefreshButton({ onClick, loading, className, label = 'Aggiorna' }: RefreshButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className={cn(
-        'inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors disabled:opacity-50',
-        className,
-      )}
-    >
-      <RefreshCw size={12} className={cn(loading && 'animate-spin')} />
-      {label}
-    </button>
-  )
-}
 
 interface PrimaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode

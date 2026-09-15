@@ -4,12 +4,14 @@ import { fetchCalendarData } from '@/lib/calendar/google'
 import { fetchLifeOsData } from '@/lib/notion/life-os'
 import { fetchWeatherData } from '@/lib/weather/client'
 import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
+import { fetchFinanceSnapshot } from '@/lib/finance/snapshot'
 import { invalidateDashboardCache, type DashboardCacheSource } from '@/lib/cache/tags'
+import { recordSyncRun, type SyncSource } from '@/lib/sync/log'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-type Source = 'calendar' | 'second-brain' | 'life-os' | 'weather' | 'newsletter'
+type Source = 'calendar' | 'second-brain' | 'life-os' | 'weather' | 'newsletter' | 'finance'
 
 const FETCHERS: Record<Source, () => Promise<unknown>> = {
   'calendar': fetchCalendarData,
@@ -17,6 +19,7 @@ const FETCHERS: Record<Source, () => Promise<unknown>> = {
   'life-os': fetchLifeOsData,
   'weather': fetchWeatherData,
   'newsletter': () => fetchNewsletterProjectState({ forceRefresh: true }),
+  'finance': () => fetchFinanceSnapshot(true),
 }
 
 const CACHE_SOURCES: Record<Source, DashboardCacheSource> = {
@@ -25,6 +28,16 @@ const CACHE_SOURCES: Record<Source, DashboardCacheSource> = {
   'life-os': 'lifeOs',
   'weather': 'weather',
   'newsletter': 'newsletter',
+  'finance': 'finance',
+}
+
+const LOG_SOURCES: Record<Source, SyncSource> = {
+  'calendar': 'calendar',
+  'second-brain': 'second-brain',
+  'life-os': 'life-os',
+  'weather': 'weather',
+  'newsletter': 'newsletter',
+  'finance': 'finance',
 }
 
 export async function GET(
@@ -39,7 +52,7 @@ export async function GET(
   }
 
   try {
-    const data = await fetcher()
+    const data = await recordSyncRun(LOG_SOURCES[source], 'manual', fetcher)
     invalidateDashboardCache(CACHE_SOURCES[source])
     return NextResponse.json({ data, source, fetchedAt: new Date().toISOString() })
   } catch (error) {

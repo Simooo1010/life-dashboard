@@ -14,6 +14,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BackgroundSyncTrigger } from '@/components/common/BackgroundSyncTrigger'
 
 const NAV_ITEMS = [
   { href: '/',               icon: Home,       label: 'Oggi' },
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
+      <BackgroundSyncTrigger />
       {/* ─── Desktop sidebar ───────────────────────────────────────── */}
       <aside className="hidden md:flex flex-col w-56 lg:w-64 shrink-0 border-r border-border bg-surface sticky top-0 h-dvh">
         {/* Logo / title */}

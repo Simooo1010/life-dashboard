@@ -69,6 +69,18 @@ export async function runMigrations() {
 
     CREATE UNIQUE INDEX IF NOT EXISTS second_brain_history_date_page_unique
       ON second_brain_history(date, page_id);
+
+    CREATE TABLE IF NOT EXISTS sync_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT NOT NULL,
+      trigger TEXT NOT NULL,
+      status TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      finished_at TEXT NOT NULL,
+      duration_ms INTEGER NOT NULL,
+      detail TEXT,
+      error_message TEXT
+    );
   `)
 }
 
