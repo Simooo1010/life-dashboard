@@ -51,7 +51,39 @@ function formatIcsDate(raw: string): string {
   return ''
 }
 
-function parseIcsFeed(icsText: string, calendarId: string = 'primary'): CalendarEvent[] {
+function decodeHtmlEntities(value: string): string {
+  const named: Record<string, string> = {
+    amp: '&',
+    apos: "'",
+    gt: '>',
+    lt: '<',
+    nbsp: ' ',
+    quot: '"',
+  }
+
+  return value.replace(/&(#(?:x[0-9a-f]+|\d+)|amp|apos|gt|lt|nbsp|quot);/gi, (entity, token: string) => {
+    if (!token.startsWith('#')) return named[token.toLowerCase()] ?? entity
+
+    const hexadecimal = token[1]?.toLowerCase() === 'x'
+    const codePoint = Number.parseInt(token.slice(hexadecimal ? 2 : 1), hexadecimal ? 16 : 10)
+    try {
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : entity
+    } catch {
+      return entity
+    }
+  })
+}
+
+function calendarPlainText(value: string): string {
+  return decodeHtmlEntities(
+    value
+      .replace(/<br\s*\/?>/gi, ' ')
+      .replace(/<\/p\s*>/gi, ' ')
+      .replace(/<[^>]+>/g, ' '),
+  ).replace(/\s+/g, ' ').trim()
+}
+
+export function parseIcsFeed(icsText: string, calendarId: string = 'primary'): CalendarEvent[] {
   const events: CalendarEvent[] = []
   const blocks = icsText.split('BEGIN:VEVENT')
 
@@ -65,7 +97,8 @@ function parseIcsFeed(icsText: string, calendarId: string = 'primary'): Calendar
 
     const uid = getField('UID') || Math.random().toString()
     const summary = getField('SUMMARY').replace(/\\([,;Nn\\])/g, '$1') || '(senza titolo)'
-    const description = getField('DESCRIPTION').replace(/\\([,;Nn\\])/g, '$1') || undefined
+    const rawDescription = getField('DESCRIPTION').replace(/\\([,;Nn\\])/g, '$1')
+    const description = calendarPlainText(rawDescription) || undefined
     const location = getField('LOCATION').replace(/\\([,;Nn\\])/g, '$1') || undefined
 
     const dtstart = getField('DTSTART')
