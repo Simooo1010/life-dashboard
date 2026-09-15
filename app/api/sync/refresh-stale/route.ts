@@ -5,40 +5,36 @@ import { invalidateDashboardCache, type DashboardCacheSource } from '@/lib/cache
 import {
   loadCachedCalendar,
   loadCachedFinanceSnapshot,
-  loadCachedLifeOsOverview,
-  loadCachedNewsletter,
-  loadCachedSecondBrainPage,
   loadCachedWeather,
 } from '@/lib/cache/dashboard-data'
 import type { SyncSource } from '@/lib/sync/log'
 
 export const dynamic = 'force-dynamic'
 
+// Only calendar/weather/finance are proactively refreshed in the background.
+// Life OS, Second Brain and Newsletter all hit Notion, which shares one
+// rate-limit bucket — each page already keeps its own copy of that data
+// fresh via a dedicated unstable_cache loader on visit, so refreshing them
+// again here on every page load doubles Notion traffic for no benefit and
+// trips 429s in production.
+type BackgroundRefreshSource = Extract<DashboardCacheSource, 'calendar' | 'finance' | 'weather'>
+
 // Mirrors the unstable_cache `revalidate` windows in lib/cache/dashboard-data.ts.
-const TTL_MS: Record<DashboardCacheSource, number> = {
+const TTL_MS: Record<BackgroundRefreshSource, number> = {
   calendar: 60_000,
   finance: 300_000,
-  lifeOs: 300_000,
-  newsletter: 300_000,
-  secondBrain: 300_000,
   weather: 600_000,
 }
 
-const REFRESHERS: Record<DashboardCacheSource, () => Promise<unknown>> = {
+const REFRESHERS: Record<BackgroundRefreshSource, () => Promise<unknown>> = {
   calendar: loadCachedCalendar,
   finance: loadCachedFinanceSnapshot,
-  lifeOs: loadCachedLifeOsOverview,
-  newsletter: loadCachedNewsletter,
-  secondBrain: loadCachedSecondBrainPage,
   weather: loadCachedWeather,
 }
 
-const LOG_SOURCE_BY_CACHE: Record<DashboardCacheSource, SyncSource> = {
+const LOG_SOURCE_BY_CACHE: Record<BackgroundRefreshSource, SyncSource> = {
   calendar: 'calendar',
   finance: 'finance',
-  lifeOs: 'life-os',
-  newsletter: 'newsletter',
-  secondBrain: 'second-brain',
   weather: 'weather',
 }
 
@@ -54,7 +50,7 @@ export async function POST() {
     try {
       const lastSuccess = await getLastSuccessMap()
       const now = Date.now()
-      const staleSources = (Object.keys(TTL_MS) as DashboardCacheSource[]).filter(source => {
+      const staleSources = (Object.keys(TTL_MS) as BackgroundRefreshSource[]).filter(source => {
         const last = lastSuccess[LOG_SOURCE_BY_CACHE[source]]
         if (!last) return true
         return now - new Date(last).getTime() > TTL_MS[source]

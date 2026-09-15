@@ -7,6 +7,7 @@ import type { WeatherContextSignals } from '@/lib/weather/correlation'
 import type { LifeOsOverview } from '@/lib/life-os/types'
 import type { DailyContext } from '@/lib/daily-context/types'
 import type { SecondBrainResult } from '@/lib/second-brain/types'
+import { formatTime } from '@/lib/utils'
 
 function getGroq() {
   return new Groq({ apiKey: process.env.GROQ_API_KEY ?? '' })
@@ -78,7 +79,7 @@ export function buildFastDailySynthesis(
     title: event.title,
     context: event.isAllDay
       ? 'Impegno previsto per oggi.'
-      : `In programma alle ${event.start.split('T')[1]?.slice(0, 5) ?? 'orario indicato'}.`,
+      : `In programma alle ${event.start.includes('T') ? formatTime(event.start) : 'orario indicato'}.`,
     source: event.category,
     urgency: event.category === 'school' ? 'high' : event.category === 'sport' ? 'medium' : 'low',
   }))

@@ -2,14 +2,15 @@ import Groq from 'groq-sdk'
 import type { CalendarEvent } from '@/lib/calendar/google'
 import type { NormalizedWeatherData } from '@/lib/weather/types'
 import type { EventWeatherImpact } from '@/lib/weather/correlation'
+import { getLocalHour } from '@/lib/utils'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
+// event.start is UTC; weather.hourly is indexed by local (Europe/Rome) hour,
+// so this must convert rather than read the raw UTC hour off the string —
+// a raw read was off by the timezone offset (e.g. 11:30 showing as 9:30).
 function parseHourFromIso(isoString: string): number | null {
-  if (!isoString.includes('T')) return null
-  const timePart = isoString.split('T')[1]
-  if (!timePart) return null
-  return parseInt(timePart.slice(0, 2), 10)
+  return getLocalHour(isoString)
 }
 
 // ─── AI-driven event ↔ weather correlation ─────────────────────────────────────

@@ -66,12 +66,14 @@ export async function runDailyOrchestrator(
       })
 
   // Fetch all sources in parallel (Calendar, Life OS, Second Brain, Weather).
-  // Always fetched live (not just on forceRefresh) so a normal page load never
-  // falls back to an empty Life OS/Second Brain snapshot — the surrounding
-  // unstable_cache wrapper (see lib/cache/dashboard-data.ts) already bounds how
-  // often this actually runs.
-  const lifeOsRequest = track('life-os', fetchLifeOsData)
-  const secondBrainRequest = track('second-brain', fetchSecondBrainBundle)
+  // Life OS/Second Brain are only fetched live here on forceRefresh: Notion
+  // shares one rate-limit bucket across Life OS, Second Brain and Newsletter,
+  // and each page already keeps its own copy of this data fresh via a
+  // dedicated unstable_cache loader (see lib/cache/dashboard-data.ts).
+  // Fetching them again here on every normal cache refresh doubled Notion
+  // traffic and tripped rate limits in production.
+  const lifeOsRequest = forceRefresh ? track('life-os', fetchLifeOsData) : Promise.resolve(emptyLifeOsSnapshot())
+  const secondBrainRequest = forceRefresh ? track('second-brain', fetchSecondBrainBundle) : Promise.resolve(null)
   const [calendar, lifeOs, secondBrain, weatherResult] = await Promise.allSettled([
     track('calendar', fetchCalendarData),
     lifeOsRequest,

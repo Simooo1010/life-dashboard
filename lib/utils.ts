@@ -34,6 +34,23 @@ export function formatTime(dateStr: string): string {
   })
 }
 
+/**
+ * Local (Europe/Rome by default) hour-of-day for a timed ISO datetime, or
+ * null for a date-only string. Use this instead of slicing the raw ISO
+ * string — event.start is UTC, so a raw slice reads the UTC hour, not the
+ * local one (off by the timezone offset, e.g. -2h in CEST).
+ */
+export function getLocalHour(dateStr: string, timeZone = 'Europe/Rome'): number | null {
+  if (!dateStr.includes('T')) return null
+  const formatted = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(dateStr))
+  const hour = parseInt(formatted, 10)
+  return Number.isFinite(hour) ? hour : null
+}
+
 export function getDaysUntil(dateStr: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
