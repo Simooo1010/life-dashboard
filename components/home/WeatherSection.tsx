@@ -66,6 +66,7 @@ export function WeatherSection({ weather, weatherSignals, weatherNote }: Weather
         <p className="section-label">Meteo · {location.name}</p>
         <Link
           href="/weather"
+          prefetch={false}
           className="text-xs text-ink-muted hover:text-accent transition-colors flex items-center gap-1"
         >
           Previsioni complete →

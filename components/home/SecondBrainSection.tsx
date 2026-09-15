@@ -19,7 +19,7 @@ export function SecondBrainSection({ recommendations }: SecondBrainSectionProps)
           <p className="section-label">Dal tuo Secondo Cervello</p>
           <Brain size={12} className="text-ink-faint" />
         </div>
-        <Link href="/second-brain" className="text-xs text-ink-muted hover:text-ink transition-colors">
+        <Link href="/second-brain" prefetch={false} className="text-xs text-ink-muted hover:text-ink transition-colors">
           Vedi connessioni →
         </Link>
       </div>

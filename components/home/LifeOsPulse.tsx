@@ -14,7 +14,7 @@ export function LifeOsPulse({ overview }: { overview?: LifeOsOverview }) {
           <p className="section-label">Life OS</p>
           <h2 id="life-os-pulse" className="text-lg font-semibold tracking-tight text-ink">Il polso della settimana</h2>
         </div>
-        <Link href="/life-os" className="text-xs font-medium text-accent hover:underline">Apri dashboard →</Link>
+        <Link href="/life-os" prefetch={false} className="text-xs font-medium text-accent hover:underline">Apri dashboard →</Link>
       </div>
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-950/30 p-3"><p className="text-2xl font-semibold text-ink">{todayCount}</p><p className="text-2xs text-ink-muted">oggi</p></div>

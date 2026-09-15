@@ -17,7 +17,7 @@ export function NewsletterPulse({ state }: { state: NewsletterProjectState | nul
           <p id="newsletter-pulse-title" className="section-label">AI, But clearer</p>
           <Newspaper size={12} className="text-ink-faint" aria-hidden="true" />
         </div>
-        <Link href="/newsletter" className="inline-flex items-center gap-1 text-xs text-ink-muted transition-colors hover:text-ink">
+        <Link href="/newsletter" prefetch={false} className="inline-flex items-center gap-1 text-xs text-ink-muted transition-colors hover:text-ink">
           Stato progetto <ArrowUpRight size={12} />
         </Link>
       </div>

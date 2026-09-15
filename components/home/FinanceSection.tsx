@@ -22,7 +22,7 @@ export function FinanceSection({ snapshot, observations, configured }: FinanceSe
           <p className="section-label">Finanze</p>
           <Wallet size={12} className="cat-finance" />
         </div>
-        <Link href="/finance" className="text-xs text-ink-muted hover:text-accent transition-colors">
+        <Link href="/finance" prefetch={false} className="text-xs text-ink-muted hover:text-accent transition-colors">
           Vai alle finanze →
         </Link>
       </div>
