@@ -24,6 +24,7 @@ export interface WeatherContextSignals {
 export async function correlateCalendarWithWeather(
   events: CalendarEvent[],
   weather: NormalizedWeatherData,
+  options: { fastMode?: boolean } = {},
 ): Promise<WeatherContextSignals> {
   const todayMax = weather.todayMax
   const todayMin = weather.todayMin
@@ -57,7 +58,9 @@ export async function correlateCalendarWithWeather(
   // rather than a fixed "this category always means outdoors" rule. This
   // avoids false alerts on indoor events (lessons, calls, appointments) and
   // adapts to whatever wording the event actually uses.
-  const eventAlerts = await correlateEventsWithWeatherAI(events, weather)
+  const eventAlerts = options.fastMode
+    ? []
+    : await correlateEventsWithWeatherAI(events, weather)
 
   // Determine overall weather relevance
   let weatherRelevance: WeatherContextSignals['weatherRelevance'] = 'low'

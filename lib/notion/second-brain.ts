@@ -31,6 +31,11 @@ export interface SecondBrainData {
   fetchedAt: string
 }
 
+export interface SecondBrainBundle {
+  nodes: KnowledgeNode[]
+  rawSources: RawSource[]
+}
+
 function getPropertyValue(prop: AnyProperty | undefined): string | null {
   if (!prop) return null
   if (prop.type === 'select') return prop.select?.name ?? null
@@ -90,25 +95,29 @@ function normalizeRawSource(page: PageObjectResponse): RawSource {
   }
 }
 
-export async function fetchKnowledgeGraphIndex(): Promise<KnowledgeNode[]> {
+export async function fetchSecondBrainBundle(
+  query: typeof queryAll = queryAll,
+): Promise<SecondBrainBundle> {
   const [knowledgePages, rawSourcePages] = await Promise.all([
-    queryAll(notionSecondBrain, NOTION_DB.knowledgeGraph),
-    queryAll(notionSecondBrain, NOTION_DB.rawSources),
+    query(notionSecondBrain, NOTION_DB.knowledgeGraph),
+    query(notionSecondBrain, NOTION_DB.rawSources),
   ])
   const rawSources = rawSourcePages.map(normalizeRawSource)
   const sourceLabels = new Map(rawSources.map(source => [source.id, source.name || source.sourceUrl || source.id]))
 
-  return knowledgePages
+  const nodes = knowledgePages
     .map(page => normalizeKnowledgePage(page, sourceLabels))
     .filter(node => Boolean(node.concept.trim()))
+
+  return { nodes, rawSources }
+}
+
+export async function fetchKnowledgeGraphIndex(): Promise<KnowledgeNode[]> {
+  return (await fetchSecondBrainBundle()).nodes
 }
 
 export async function fetchSecondBrainData(): Promise<SecondBrainData> {
-  const [nodes, rawSourcePages] = await Promise.all([
-    fetchKnowledgeGraphIndex(),
-    queryAll(notionSecondBrain, NOTION_DB.rawSources),
-  ])
-  const rawSources = rawSourcePages.map(normalizeRawSource)
+  const { nodes, rawSources } = await fetchSecondBrainBundle()
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 14)
 

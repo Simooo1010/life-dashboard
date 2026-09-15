@@ -1,5 +1,6 @@
 import { AppShell } from '@/components/layout/AppShell'
-import { fetchCalendarData, type CalendarData, type CalendarEvent } from '@/lib/calendar/google'
+import type { CalendarData, CalendarEvent } from '@/lib/calendar/google'
+import { loadCachedCalendar } from '@/lib/cache/dashboard-data'
 import { formatTime, formatDate } from '@/lib/utils'
 import { CategoryBadge } from '@/components/common/Badge'
 
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export default async function CalendarPage() {
   let data: CalendarData | null = null
   try {
-    data = await fetchCalendarData()
+    data = await loadCachedCalendar()
   } catch (e) {
     console.error('[CalendarPage]', e)
   }

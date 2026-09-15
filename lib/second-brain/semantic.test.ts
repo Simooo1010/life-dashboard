@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { DailyContext } from '../daily-context/types'
-import { buildFallbackAssessments, parseSemanticAssessments } from './semantic'
+import {
+  buildFallbackAssessments,
+  buildSemanticPrompt,
+  parseSemanticAssessments,
+  splitSemanticBatches,
+} from './semantic'
 import type { KnowledgeDocument, KnowledgeNode } from './types'
 
 const context: DailyContext = {
@@ -59,5 +64,26 @@ describe('parseSemanticAssessments', () => {
     }, { candidateId: 'broken', semanticRelevance: 'high' }] })
 
     expect(parseSemanticAssessments(raw)).toHaveLength(1)
+  })
+})
+
+describe('semantic request budgeting', () => {
+  it('splits a large graph into provider-safe batches', () => {
+    const documents = Array.from({ length: 12 }, (_, index) => document(`node-${index}`, `Evidence ${index}`))
+
+    expect(splitSemanticBatches(documents).map(batch => batch.length)).toEqual([4, 4, 4])
+  })
+
+  it('bounds the evidence copied into one model prompt', () => {
+    const candidates = Array.from({ length: 4 }, (_, index) => node(`node-${index}`, `Concept ${index}`))
+    const documents = candidates.map(candidate => document(
+      candidate.id,
+      `${'useful evidence '.repeat(400)}TAIL_MARKER_${candidate.id}`,
+    ))
+
+    const prompt = buildSemanticPrompt(context, candidates, documents)
+
+    expect(prompt.length).toBeLessThan(12_000)
+    expect(prompt).not.toContain('TAIL_MARKER_')
   })
 })

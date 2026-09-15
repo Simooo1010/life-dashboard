@@ -1,10 +1,10 @@
-import { fetchSecondBrainData } from '@/lib/notion/second-brain'
+import { fetchSecondBrainBundle, type SecondBrainData } from '@/lib/notion/second-brain'
 import { fetchCalendarData } from '@/lib/calendar/google'
 import { fetchWeatherData } from '@/lib/weather/client'
 import { correlateCalendarWithWeather, type WeatherContextSignals } from '@/lib/weather/correlation'
 import type { NormalizedWeatherData } from '@/lib/weather/types'
 import { dashboardSupabase } from '@/lib/supabase/dashboard-client'
-import { generateDailySynthesis, computeInputHash, type AllSourceData, type DailySynthesis } from '@/lib/groq/synthesis'
+import { buildFastDailySynthesis, generateDailySynthesis, computeInputHash, type AllSourceData, type DailySynthesis } from '@/lib/groq/synthesis'
 import { db, runMigrations } from '@/db'
 import { dailySyntheses } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
@@ -13,6 +13,7 @@ import { buildLifeOsOverview } from '@/lib/life-os/interpret'
 import type { LifeOsSnapshot, LifeOsOverview } from '@/lib/life-os/types'
 import { loadDailyContext } from '@/lib/daily-context/service'
 import { getContextualSecondBrain } from '@/lib/second-brain/service'
+import type { SecondBrainResult } from '@/lib/second-brain/types'
 
 export interface OrchestratorResult {
   synthesis: DailySynthesis
@@ -43,23 +44,39 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
   const date = getTodayStr()
 
   // Fetch all sources in parallel (Calendar, Life OS, Second Brain, Weather)
+  const lifeOsRequest = forceRefresh ? fetchLifeOsData() : Promise.resolve(emptyLifeOsSnapshot())
+  const secondBrainRequest = forceRefresh ? fetchSecondBrainBundle() : Promise.resolve(null)
   const [calendar, lifeOs, secondBrain, weatherResult] = await Promise.allSettled([
     fetchCalendarData(),
-    fetchLifeOsData(),
-    fetchSecondBrainData(),
+    lifeOsRequest,
+    secondBrainRequest,
     fetchWeatherData(),
   ])
 
   const calendarData = calendar.status === 'fulfilled' ? calendar.value : emptyCalendarData()
   const lifeOsSnapshot: LifeOsSnapshot = lifeOs.status === 'fulfilled' ? lifeOs.value : emptyLifeOsSnapshot()
   const lifeOsOverview: LifeOsOverview = buildLifeOsOverview(lifeOsSnapshot, calendarData, { now: new Date(), timeZone: process.env.LIFE_OS_TIMEZONE ?? 'Europe/Rome' })
-  const secondBrainData = secondBrain.status === 'fulfilled' ? secondBrain.value : emptySecondBrainData()
+  const secondBrainBundle = secondBrain.status === 'fulfilled' ? secondBrain.value : null
+  const secondBrainData = secondBrainBundle
+    ? summarizeSecondBrain(secondBrainBundle.nodes, secondBrainBundle.rawSources)
+    : emptySecondBrainData()
   const weatherData = weatherResult.status === 'fulfilled' ? weatherResult.value : null
-  const dailyContext = await loadDailyContext({ calendar: calendarData, lifeOs: lifeOsOverview })
-  const contextualSecondBrain = await getContextualSecondBrain(dailyContext.context)
+  const dailyContext = await loadDailyContext({
+    calendar: calendarData,
+    lifeOs: lifeOsOverview,
+    includeNewsletter: forceRefresh,
+  })
+  const contextualSecondBrain = forceRefresh
+    ? await getContextualSecondBrain(dailyContext.context, {
+        forceRefresh: true,
+        ...(secondBrainBundle ? { prefetchedNodes: secondBrainBundle.nodes } : {}),
+      })
+    : emptyContextualSecondBrain(dailyContext.context.contextHash)
 
   // Correlate calendar with weather
-  const weatherSignals = weatherData ? await correlateCalendarWithWeather(calendarData.todayEvents, weatherData) : null
+  const weatherSignals = weatherData
+    ? await correlateCalendarWithWeather(calendarData.todayEvents, weatherData, { fastMode: !forceRefresh })
+    : null
 
   const sourceData: AllSourceData = {
     date,
@@ -111,7 +128,9 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
   }
 
   // ─── Generate new synthesis ───────────────────────────────────────────────
-  const synthesis = await generateDailySynthesis(sourceData)
+  const synthesis = forceRefresh
+    ? await generateDailySynthesis(sourceData)
+    : buildFastDailySynthesis(sourceData)
 
   // ─── Cache persist ────────────────────────────────────────────────────────
   if (isCloudMode && dashboardSupabase) {
@@ -161,6 +180,31 @@ function emptyCalendarData() {
 function emptySecondBrainData() {
   return { recentConcepts: [], unprocessedSources: [], fetchedAt: new Date().toISOString() }
 }
+function summarizeSecondBrain(
+  nodes: Awaited<ReturnType<typeof fetchSecondBrainBundle>>['nodes'],
+  rawSources: Awaited<ReturnType<typeof fetchSecondBrainBundle>>['rawSources'],
+): SecondBrainData {
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000
+  return {
+    recentConcepts: nodes
+      .filter(node => new Date(node.lastEditedAt).getTime() >= cutoff)
+      .sort((a, b) => b.lastEditedAt.localeCompare(a.lastEditedAt))
+      .slice(0, 20),
+    unprocessedSources: rawSources.filter(source => source.status?.toLowerCase() === 'unprocessed'),
+    fetchedAt: new Date().toISOString(),
+  }
+}
 function emptyLifeOsSnapshot(): LifeOsSnapshot {
   return { title: 'Life OS', items: [], schedule: [], sources: [{ source: 'notion', label: 'Notion · Life OS', state: 'unavailable', checkedAt: new Date().toISOString(), message: 'Source unavailable' }], pageUrl: process.env.NOTION_LIFE_OS_PAGE_URL ?? '', fetchedAt: new Date().toISOString() }
+}
+function emptyContextualSecondBrain(contextHash: string): SecondBrainResult {
+  return {
+    relevantToday: [],
+    rediscover: [],
+    generatedAt: new Date().toISOString(),
+    contextHash,
+    knowledgeRevisionHash: 'deferred',
+    sourceStatuses: [{ source: 'knowledge-graph', state: 'partial', message: 'Caricato separatamente dalla pagina principale' }],
+    fromCache: false,
+  }
 }

@@ -6,7 +6,11 @@ import { fetchKnowledgeGraphIndex } from '../notion/second-brain'
 import { refreshKnowledgeDocuments, type KnowledgeContentRefreshResult } from './content'
 import { validateSemanticAssessments } from './grounding'
 import { rankRecommendations } from './rank'
-import { assessKnowledgeDocuments, type SemanticAssessmentResult } from './semantic'
+import {
+  assessKnowledgeDocuments,
+  buildFallbackAssessments,
+  type SemanticAssessmentResult,
+} from './semantic'
 import { buildRunCacheKey, secondBrainRepository, type SecondBrainRepository } from './repository'
 import type {
   KnowledgeDocument,
@@ -35,6 +39,8 @@ export interface SecondBrainServiceDependencies {
 
 export interface SecondBrainServiceOptions {
   forceRefresh?: boolean
+  fastMode?: boolean
+  prefetchedNodes?: KnowledgeNode[]
   dependencies?: SecondBrainServiceDependencies
 }
 
@@ -44,6 +50,33 @@ const defaultDependencies: SecondBrainServiceDependencies = {
   assess: assessKnowledgeDocuments,
   repository: secondBrainRepository,
   now: () => new Date(),
+}
+
+const inFlightRuns = new WeakMap<SecondBrainServiceDependencies, Map<string, Promise<SecondBrainResult>>>()
+const memoryRuns = new WeakMap<SecondBrainServiceDependencies, Map<string, { expiresAt: number; result: SecondBrainResult }>>()
+const MEMORY_RUN_TTL_MS = 5 * 60 * 1000
+const PAGE_LOAD_CANDIDATE_LIMIT = 4
+
+export function selectKnowledgeCandidates(
+  context: DailyContext,
+  nodes: KnowledgeNode[],
+  limit = PAGE_LOAD_CANDIDATE_LIMIT,
+): KnowledgeNode[] {
+  const contextTokens = new Set(context.facts.flatMap(fact => fact.tokens))
+  return nodes
+    .map(node => {
+      const tokens = tokenizeContext(`${node.concept} ${node.category ?? ''} ${node.sourceMaterials.join(' ')}`)
+      const overlap = tokens.filter(token => contextTokens.has(token)).length
+      const quality = (node.truthChecked === 'verified' ? 2 : 0) + (node.sourceMaterials.length > 0 ? 1 : 0)
+      return { node, score: overlap * 20 + quality }
+    })
+    .sort((a, b) => (
+      b.score - a.score
+      || b.node.lastEditedAt.localeCompare(a.node.lastEditedAt)
+      || a.node.id.localeCompare(b.node.id)
+    ))
+    .slice(0, Math.max(1, limit))
+    .map(candidate => candidate.node)
 }
 
 export function computeKnowledgeRevisionHash(nodes: KnowledgeNode[]): string {
@@ -143,66 +176,102 @@ export async function getContextualSecondBrain(
   options: SecondBrainServiceOptions = {},
 ): Promise<SecondBrainResult> {
   const dependencies = options.dependencies ?? defaultDependencies
-  const nodes = await dependencies.fetchIndex()
+  const nodes = options.prefetchedNodes ?? await dependencies.fetchIndex()
   const knowledgeRevisionHash = computeKnowledgeRevisionHash(nodes)
   const cacheKey = buildRunCacheKey(context.localDate, context.contextHash, knowledgeRevisionHash, RANKING_VERSION)
 
   if (!options.forceRefresh) {
+    const memoryRun = memoryRuns.get(dependencies)?.get(cacheKey)
+    if (memoryRun && memoryRun.expiresAt > dependencies.now().getTime()) {
+      return { ...memoryRun.result, fromCache: true }
+    }
     try {
       const cached = await dependencies.repository.getRun(cacheKey)
-      if (cached) return { ...cached, fromCache: true }
+      if (cached) {
+        const dependencyMemory = memoryRuns.get(dependencies) ?? new Map<string, { expiresAt: number; result: SecondBrainResult }>()
+        memoryRuns.set(dependencies, dependencyMemory)
+        dependencyMemory.set(cacheKey, { expiresAt: dependencies.now().getTime() + MEMORY_RUN_TTL_MS, result: cached })
+        return { ...cached, fromCache: true }
+      }
     } catch (error) {
       console.warn('[SecondBrain] Recommendation cache read failed:', error)
     }
   }
 
-  const refresh = await dependencies.refreshDocuments(nodes, dependencies.repository)
-  let history: RecommendationHistoryEntry[] = []
+  const dependencyRuns = inFlightRuns.get(dependencies) ?? new Map<string, Promise<SecondBrainResult>>()
+  inFlightRuns.set(dependencies, dependencyRuns)
+  if (!options.forceRefresh) {
+    const inFlight = dependencyRuns.get(cacheKey)
+    if (inFlight) return inFlight
+  }
+
+  const run = (async () => {
+    const candidates = selectKnowledgeCandidates(context, nodes, options.fastMode ? 1 : PAGE_LOAD_CANDIDATE_LIMIT)
+    const refresh = await dependencies.refreshDocuments(candidates, dependencies.repository)
+    let history: RecommendationHistoryEntry[] = []
+    try {
+      history = await dependencies.repository.getHistory(addLocalDays(context.localDate, -14))
+    } catch (error) {
+      console.warn('[SecondBrain] History read failed:', error)
+    }
+
+    const semantic: SemanticAssessmentResult = options.fastMode
+      ? {
+          assessments: buildFallbackAssessments(context, candidates, refresh.documents),
+          usedFallback: true,
+          message: 'Fast grounded ranking used for page load',
+        }
+      : await dependencies.assess(context, candidates, refresh.documents)
+    const grounded = validateSemanticAssessments(semantic.assessments, context, refresh.documents)
+    const relevantToday = rankRecommendations({
+      nodes,
+      documents: refresh.documents,
+      assessments: grounded,
+      history,
+      localDate: context.localDate,
+    })
+    const rediscover = selectRediscover(context, nodes, refresh.documents, relevantToday, history)
+
+    const result: SecondBrainResult = {
+      relevantToday,
+      rediscover,
+      generatedAt: dependencies.now().toISOString(),
+      contextHash: context.contextHash,
+      knowledgeRevisionHash,
+      sourceStatuses: [
+        {
+          source: 'knowledge-graph',
+          state: nodes.length === 0 ? 'empty' : refresh.failures.length > 0 ? 'partial' : 'available',
+          ...(refresh.failures.length > 0 ? { message: `${refresh.failures.length} pagine non aggiornabili` } : {}),
+        },
+        {
+          source: 'semantic-ranking',
+          state: semantic.usedFallback ? 'partial' : 'available',
+          ...(semantic.message ? { message: semantic.message } : {}),
+        },
+        { source: 'history', state: 'available' },
+      ],
+      fromCache: false,
+    }
+
+    try {
+      await dependencies.repository.putRun(cacheKey, context.localDate, result)
+      await dependencies.repository.recordHistory(context.localDate, relevantToday, rediscover)
+    } catch (error) {
+      console.warn('[SecondBrain] Derived persistence failed:', error)
+    }
+
+    return result
+  })()
+
+  if (!options.forceRefresh) dependencyRuns.set(cacheKey, run)
   try {
-    history = await dependencies.repository.getHistory(addLocalDays(context.localDate, -14))
-  } catch (error) {
-    console.warn('[SecondBrain] History read failed:', error)
+    const result = await run
+    const dependencyMemory = memoryRuns.get(dependencies) ?? new Map<string, { expiresAt: number; result: SecondBrainResult }>()
+    memoryRuns.set(dependencies, dependencyMemory)
+    dependencyMemory.set(cacheKey, { expiresAt: dependencies.now().getTime() + MEMORY_RUN_TTL_MS, result })
+    return result
+  } finally {
+    if (dependencyRuns.get(cacheKey) === run) dependencyRuns.delete(cacheKey)
   }
-
-  const semantic = await dependencies.assess(context, nodes, refresh.documents)
-  const grounded = validateSemanticAssessments(semantic.assessments, context, refresh.documents)
-  const relevantToday = rankRecommendations({
-    nodes,
-    documents: refresh.documents,
-    assessments: grounded,
-    history,
-    localDate: context.localDate,
-  })
-  const rediscover = selectRediscover(context, nodes, refresh.documents, relevantToday, history)
-
-  const result: SecondBrainResult = {
-    relevantToday,
-    rediscover,
-    generatedAt: dependencies.now().toISOString(),
-    contextHash: context.contextHash,
-    knowledgeRevisionHash,
-    sourceStatuses: [
-      {
-        source: 'knowledge-graph',
-        state: nodes.length === 0 ? 'empty' : refresh.failures.length > 0 ? 'partial' : 'available',
-        ...(refresh.failures.length > 0 ? { message: `${refresh.failures.length} pagine non aggiornabili` } : {}),
-      },
-      {
-        source: 'semantic-ranking',
-        state: semantic.usedFallback ? 'partial' : 'available',
-        ...(semantic.message ? { message: semantic.message } : {}),
-      },
-      { source: 'history', state: 'available' },
-    ],
-    fromCache: false,
-  }
-
-  try {
-    await dependencies.repository.putRun(cacheKey, context.localDate, result)
-    await dependencies.repository.recordHistory(context.localDate, relevantToday, rediscover)
-  } catch (error) {
-    console.warn('[SecondBrain] Derived persistence failed:', error)
-  }
-
-  return result
 }

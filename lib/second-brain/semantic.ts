@@ -109,7 +109,16 @@ function chunks<T>(values: T[], size: number): T[][] {
   return result
 }
 
-function buildPrompt(context: DailyContext, nodes: KnowledgeNode[], documents: KnowledgeDocument[]): string {
+const SEMANTIC_BATCH_SIZE = 4
+const SEMANTIC_EVIDENCE_LIMIT = 4
+const SEMANTIC_EVIDENCE_CHARS = 1_200
+const SEMANTIC_PROMPT_CHARS = 20_000
+
+export function splitSemanticBatches(documents: KnowledgeDocument[]): KnowledgeDocument[][] {
+  return chunks(documents, SEMANTIC_BATCH_SIZE)
+}
+
+export function buildSemanticPrompt(context: DailyContext, nodes: KnowledgeNode[], documents: KnowledgeDocument[]): string {
   const nodeById = new Map(nodes.map(node => [node.id, node]))
   const candidates = documents.map(document => {
     const node = nodeById.get(document.nodeId)!
@@ -120,7 +129,10 @@ function buildPrompt(context: DailyContext, nodes: KnowledgeNode[], documents: K
       relatedIds: node.relatedIds,
       sourceMaterials: node.sourceMaterials,
       truthChecked: node.truthChecked,
-      evidence: document.evidence.slice(0, 6),
+      evidence: document.evidence.slice(0, SEMANTIC_EVIDENCE_LIMIT).map(evidence => ({
+        ...evidence,
+        text: evidence.text.slice(0, SEMANTIC_EVIDENCE_CHARS),
+      })),
     }
   })
 
@@ -159,14 +171,21 @@ export async function assessKnowledgeDocuments(
   const assessments: SemanticAssessment[] = []
   let usedFallback = false
 
-  for (const batch of chunks(documents, 12)) {
+  for (const batch of splitSemanticBatches(documents)) {
     const batchNodes = batch.flatMap(document => nodeById.get(document.nodeId) ?? [])
+    const prompt = buildSemanticPrompt(context, batchNodes, batch)
+    if (prompt.length > SEMANTIC_PROMPT_CHARS) {
+      usedFallback = true
+      console.warn(`[SecondBrain] Semantic batch fallback: prompt budget exceeded (${prompt.length} chars)`)
+      assessments.push(...buildFallbackAssessments(context, batchNodes, batch))
+      continue
+    }
     try {
       const request: GroqReasoningRequest = {
         model: process.env.SECOND_BRAIN_GROQ_MODEL || 'qwen/qwen3.8-27b',
-        messages: [{ role: 'user', content: buildPrompt(context, batchNodes, batch) }],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.15,
-        max_tokens: 2_400,
+        max_tokens: 900,
         response_format: { type: 'json_object' },
         reasoning_effort: 'none',
         reasoning_format: 'hidden',

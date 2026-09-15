@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { DailyContext } from '../daily-context/types'
-import { getContextualSecondBrain, type SecondBrainServiceDependencies } from './service'
+import {
+  getContextualSecondBrain,
+  selectKnowledgeCandidates,
+  type SecondBrainServiceDependencies,
+} from './service'
 import type { KnowledgeDocument, KnowledgeNode, SecondBrainResult } from './types'
 
 function context(hash = 'context-a'): DailyContext {
@@ -48,6 +52,29 @@ function dependencies(cached: SecondBrainResult | null = null) {
 }
 
 describe('getContextualSecondBrain', () => {
+  it('coalesces concurrent recommendation work for the same context and graph', async () => {
+    const { deps, state } = dependencies()
+
+    const [first, second] = await Promise.all([
+      getContextualSecondBrain(context(), { dependencies: deps }),
+      getContextualSecondBrain(context(), { dependencies: deps }),
+    ])
+
+    expect(first.relevantToday.map(item => item.id)).toEqual(['node-1'])
+    expect(second.relevantToday.map(item => item.id)).toEqual(['node-1'])
+    expect(state).toEqual({ assessCalls: 1, historyWrites: 1, runWrites: 1 })
+  })
+
+  it('reuses a recent in-memory result when persistent caching is unavailable', async () => {
+    const { deps, state } = dependencies()
+
+    await getContextualSecondBrain(context(), { dependencies: deps })
+    const repeated = await getContextualSecondBrain(context(), { dependencies: deps })
+
+    expect(repeated.fromCache).toBe(true)
+    expect(state).toEqual({ assessCalls: 1, historyWrites: 1, runWrites: 1 })
+  })
+
   it('persists and records a newly grounded recommendation run once', async () => {
     const { deps, state } = dependencies()
     const result = await getContextualSecondBrain(context(), { dependencies: deps })
@@ -55,6 +82,35 @@ describe('getContextualSecondBrain', () => {
     expect(result.relevantToday.map(item => item.id)).toEqual(['node-1'])
     expect(result.relevantToday[0].whyToday).toBe('The Physics test is tomorrow.')
     expect(state).toEqual({ assessCalls: 1, historyWrites: 1, runWrites: 1 })
+  })
+
+  it('reuses a graph index that the page already fetched', async () => {
+    const { deps, state } = dependencies()
+    const result = await getContextualSecondBrain(context('prefetched'), {
+      dependencies: {
+        ...deps,
+        fetchIndex: async () => { throw new Error('duplicate graph request') },
+      },
+      prefetchedNodes: [node],
+    })
+
+    expect(result.relevantToday.map(item => item.id)).toEqual(['node-1'])
+    expect(state.assessCalls).toBe(1)
+  })
+
+  it('uses grounded deterministic ranking on the latency-sensitive page-load path', async () => {
+    const { deps, state } = dependencies()
+    const result = await getContextualSecondBrain(context('fast'), {
+      dependencies: deps,
+      fastMode: true,
+    })
+
+    expect(result.relevantToday.map(item => item.id)).toEqual(['node-1'])
+    expect(state.assessCalls).toBe(0)
+    expect(result.sourceStatuses).toContainEqual(expect.objectContaining({
+      source: 'semantic-ranking',
+      state: 'partial',
+    }))
   })
 
   it('reuses the exact context and graph run without adding another history event', async () => {
@@ -67,5 +123,21 @@ describe('getContextualSecondBrain', () => {
 
     expect(result.fromCache).toBe(true)
     expect(state).toEqual({ assessCalls: 0, historyWrites: 0, runWrites: 0 })
+  })
+})
+
+describe('selectKnowledgeCandidates', () => {
+  it('bounds cold Notion page reads while retaining directly relevant concepts', () => {
+    const nodes = Array.from({ length: 20 }, (_, index): KnowledgeNode => ({
+      ...node,
+      id: `node-${index}`,
+      concept: index === 17 ? 'Physics practice' : `Unrelated concept ${index}`,
+      lastEditedAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+    }))
+
+    const selected = selectKnowledgeCandidates(context('selection'), nodes)
+
+    expect(selected).toHaveLength(4)
+    expect(selected.map(candidate => candidate.id)).toContain('node-17')
   })
 })

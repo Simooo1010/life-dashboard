@@ -1,8 +1,9 @@
 import { AppShell } from '@/components/layout/AppShell'
 import { isFinanceConfigured } from '@/lib/finance/client'
-import { fetchFinanceSnapshot } from '@/lib/finance/snapshot'
+import { loadCachedFinanceSnapshot } from '@/lib/cache/dashboard-data'
 import { getFinanceInsights } from '@/lib/groq/finance-insights'
 import type { FinanceSnapshot } from '@/lib/finance/types'
+import { Suspense } from 'react'
 import {
   Wallet,
   Sparkles,
@@ -14,6 +15,35 @@ import {
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
+
+async function FinanceInsightsPanel({ snapshot }: { snapshot: FinanceSnapshot }) {
+  const insights = await getFinanceInsights(snapshot, 'full')
+  const observations = insights?.observations ?? null
+  if (!observations?.length) return null
+
+  return (
+    <div className="card bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/70 dark:border-purple-900/40 space-y-2.5">
+      <p className="text-2xs uppercase tracking-wider font-semibold text-ink-muted flex items-center gap-1.5">
+        <Sparkles size={13} className="text-purple-600 dark:text-purple-400" /> Interpretazione AI
+      </p>
+      <ul className="space-y-1.5">
+        {observations.map((observation, index) => (
+          <li key={index} className="text-sm text-ink leading-relaxed flex gap-2">
+            <span className="text-purple-500 dark:text-purple-400">·</span>
+            <span>{observation}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-2xs text-ink-faint pt-1 border-t border-purple-200/50 dark:border-purple-900/30">
+        Interpretazione generata dall&apos;AI sui dati reali sottostanti — non è consulenza finanziaria.
+      </p>
+    </div>
+  )
+}
+
+function FinanceInsightsFallback() {
+  return <div aria-busy="true" aria-label="Interpretazione finanziaria in caricamento" className="card h-20 animate-pulse bg-purple-50/30 dark:bg-purple-950/10" />
+}
 
 function formatEuro(amount: number): string {
   return amount.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
@@ -27,14 +57,11 @@ export default async function FinancePage() {
   const configured = isFinanceConfigured()
 
   let snapshot: FinanceSnapshot | null = null
-  let observations: string[] | null = null
   let loadError = false
 
   if (configured) {
     try {
-      snapshot = await fetchFinanceSnapshot()
-      const insights = await getFinanceInsights(snapshot, 'full')
-      observations = insights?.observations ?? null
+      snapshot = await loadCachedFinanceSnapshot()
     } catch (error) {
       console.error('[FinancePage]', error)
       loadError = true
@@ -97,24 +124,9 @@ export default async function FinancePage() {
         </div>
 
         {/* ─── AI interpretation ──────────────────────────────────── */}
-        {observations && observations.length > 0 && (
-          <div className="card bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/70 dark:border-purple-900/40 space-y-2.5">
-            <p className="text-2xs uppercase tracking-wider font-semibold text-ink-muted flex items-center gap-1.5">
-              <Sparkles size={13} className="text-purple-600 dark:text-purple-400" /> Interpretazione AI
-            </p>
-            <ul className="space-y-1.5">
-              {observations.map((obs, i) => (
-                <li key={i} className="text-sm text-ink leading-relaxed flex gap-2">
-                  <span className="text-purple-500 dark:text-purple-400">·</span>
-                  <span>{obs}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-2xs text-ink-faint pt-1 border-t border-purple-200/50 dark:border-purple-900/30">
-              Interpretazione generata dall&apos;AI sui dati reali sottostanti — non è consulenza finanziaria.
-            </p>
-          </div>
-        )}
+        <Suspense fallback={<FinanceInsightsFallback />}>
+          <FinanceInsightsPanel snapshot={snapshot} />
+        </Suspense>
 
         {/* ─── Balance overview ───────────────────────────────────── */}
         <section className="space-y-3">

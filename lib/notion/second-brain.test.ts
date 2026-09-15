@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints'
-import { normalizeKnowledgePage } from './second-brain'
+import { fetchSecondBrainBundle, normalizeKnowledgePage } from './second-brain'
+import { NOTION_DB } from './client'
 
 function page(): PageObjectResponse {
   return {
@@ -47,5 +48,19 @@ describe('normalizeKnowledgePage', () => {
       truthChecked: 'verified',
       url: 'https://notion.so/node-1',
     })
+  })
+
+  it('loads the graph and raw sources exactly once for a shared snapshot', async () => {
+    const queriedIds: string[] = []
+    const query = async (_client: unknown, databaseId: string) => {
+      queriedIds.push(databaseId)
+      return databaseId === NOTION_DB.knowledgeGraph ? [page()] : []
+    }
+
+    const bundle = await fetchSecondBrainBundle(query as never)
+
+    expect(queriedIds).toEqual([NOTION_DB.knowledgeGraph, NOTION_DB.rawSources])
+    expect(bundle.nodes.map(node => node.id)).toEqual(['node-1'])
+    expect(bundle.rawSources).toEqual([])
   })
 })

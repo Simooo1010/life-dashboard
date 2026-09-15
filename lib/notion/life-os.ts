@@ -117,16 +117,25 @@ export async function fetchLifeOsData(options: FetchLifeOsOptions = {}): Promise
   const schedule: LifeOsSnapshot['schedule'] = []
   if (databaseIds.length === 0) sources.push(sourceStatus(undefined, 'Notion · Life OS', discoveryError ? 'partial' : 'empty', checkedAt, discoveryError ?? 'Nessun database accessibile trovato nella pagina.'))
 
-  for (const databaseId of databaseIds) {
+  const databaseResults = await Promise.all(databaseIds.map(async databaseId => {
     let label = databaseId
+    const databaseItems: LifeOsSnapshot['items'] = []
+    const databaseSchedule: LifeOsSnapshot['schedule'] = []
     try {
       label = databaseTitle(await client.databases.retrieve({ database_id: databaseId }), databaseId)
       const pages = await queryAllPages(client, databaseId)
       const relationTitles = await resolveRelationTitles(client, pages)
       const role = databaseRole(databaseId, label, schoolIds, logIds)
-      pages.forEach(page => { const normalized = normalizeLifeOsPage(page, relationTitles, role); if (normalized.item) items.push(normalized.item); if (normalized.scheduleEntry) schedule.push(normalized.scheduleEntry) })
-      sources.push(sourceStatus(databaseId, `Notion · ${label}`, pages.length === 0 ? 'empty' : 'available', checkedAt))
-    } catch (error) { sources.push(sourceStatus(databaseId, `Notion · ${label}`, 'partial', checkedAt, errorMessage(error))) }
+      pages.forEach(page => { const normalized = normalizeLifeOsPage(page, relationTitles, role); if (normalized.item) databaseItems.push(normalized.item); if (normalized.scheduleEntry) databaseSchedule.push(normalized.scheduleEntry) })
+      return { items: databaseItems, schedule: databaseSchedule, source: sourceStatus(databaseId, `Notion · ${label}`, pages.length === 0 ? 'empty' : 'available', checkedAt) }
+    } catch (error) {
+      return { items: databaseItems, schedule: databaseSchedule, source: sourceStatus(databaseId, `Notion · ${label}`, 'partial', checkedAt, errorMessage(error)) }
+    }
+  }))
+  for (const result of databaseResults) {
+    items.push(...result.items)
+    schedule.push(...result.schedule)
+    sources.push(result.source)
   }
   return { pageUrl, title: pageTitle(rootPage) || 'Life OS Managing', items, schedule, sources, fetchedAt: checkedAt }
 }

@@ -1,8 +1,10 @@
 import { AppShell } from '@/components/layout/AppShell'
-import { fetchWeatherData } from '@/lib/weather/client'
-import { fetchCalendarData } from '@/lib/calendar/google'
+import { loadCachedCalendar, loadCachedWeather } from '@/lib/cache/dashboard-data'
 import { correlateCalendarWithWeather } from '@/lib/weather/correlation'
 import { generateWeatherSummary } from '@/lib/groq/weather-summary'
+import type { NormalizedWeatherData } from '@/lib/weather/types'
+import type { WeatherContextSignals } from '@/lib/weather/correlation'
+import { Suspense } from 'react'
 import {
   Sun,
   Cloud,
@@ -20,6 +22,29 @@ import {
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
+
+async function WeatherSummaryCard({
+  weather,
+  signals,
+}: {
+  weather: NormalizedWeatherData
+  signals: WeatherContextSignals | null
+}) {
+  const summary = await generateWeatherSummary(weather, signals ?? undefined)
+  if (!summary) return null
+  return (
+    <div className="card bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40 flex items-start gap-3">
+      <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+        <Sparkles size={15} className="text-amber-600 dark:text-amber-400" />
+      </div>
+      <p className="text-sm text-ink leading-relaxed">{summary}</p>
+    </div>
+  )
+}
+
+function WeatherSummaryFallback() {
+  return <div aria-busy="true" aria-label="Riepilogo meteo in caricamento" className="card h-16 animate-pulse bg-amber-50/30 dark:bg-amber-950/10" />
+}
 
 function getWeatherIcon(condition: string, size = 16, className = '') {
   switch (condition) {
@@ -47,19 +72,17 @@ function getWeatherIcon(condition: string, size = 16, className = '') {
 export default async function WeatherPage() {
   let weather = null
   let signals = null
-  let aiSummary: string | null = null
 
   try {
     const [weatherRes, calendarRes] = await Promise.allSettled([
-      fetchWeatherData(),
-      fetchCalendarData(),
+      loadCachedWeather(),
+      loadCachedCalendar(),
     ])
 
     if (weatherRes.status === 'fulfilled') {
       weather = weatherRes.value
       const events = calendarRes.status === 'fulfilled' ? calendarRes.value.todayEvents : []
-      signals = await correlateCalendarWithWeather(events, weather)
-      aiSummary = await generateWeatherSummary(weather, signals)
+      signals = await correlateCalendarWithWeather(events, weather, { fastMode: true })
     }
   } catch (error) {
     console.error('[WeatherPage]', error)
@@ -103,14 +126,9 @@ export default async function WeatherPage() {
         </div>
 
         {/* ─── AI Summary ─────────────────────────────────────────── */}
-        {aiSummary && (
-          <div className="card bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
-              <Sparkles size={15} className="text-amber-600 dark:text-amber-400" />
-            </div>
-            <p className="text-sm text-ink leading-relaxed">{aiSummary}</p>
-          </div>
-        )}
+        <Suspense fallback={<WeatherSummaryFallback />}>
+          <WeatherSummaryCard weather={weather} signals={signals} />
+        </Suspense>
 
         {/* ─── Hero Overview Card ─────────────────────────────────── */}
         <div className="card space-y-4">

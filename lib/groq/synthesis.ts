@@ -8,7 +8,9 @@ import type { LifeOsOverview } from '@/lib/life-os/types'
 import type { DailyContext } from '@/lib/daily-context/types'
 import type { SecondBrainResult } from '@/lib/second-brain/types'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+function getGroq() {
+  return new Groq({ apiKey: process.env.GROQ_API_KEY ?? '' })
+}
 
 type GroqReasoningRequest = ChatCompletionCreateParamsNonStreaming & {
   reasoning_effort: 'none' | 'low'
@@ -62,8 +64,54 @@ export function computeInputHash(data: AllSourceData): string {
   return createHash('sha256').update(payload).digest('hex')
 }
 
+export function buildFastDailySynthesis(
+  data: AllSourceData,
+  now = new Date(),
+): DailySynthesis {
+  const eventCount = data.calendar.todayEvents.length
+  const dayOverview = eventCount === 0
+    ? 'Oggi non risultano impegni in calendario.'
+    : eventCount === 1
+      ? `Hai 1 impegno in calendario: ${data.calendar.todayEvents[0].title}.`
+      : `Hai ${eventCount} impegni in calendario oggi.`
+  const priorities: DailyPriority[] = data.calendar.todayEvents.slice(0, 3).map(event => ({
+    title: event.title,
+    context: event.isAllDay
+      ? 'Impegno previsto per oggi.'
+      : `In programma alle ${event.start.split('T')[1]?.slice(0, 5) ?? 'orario indicato'}.`,
+    source: event.category,
+    urgency: event.category === 'school' ? 'high' : event.category === 'sport' ? 'medium' : 'low',
+  }))
+  const concentration = data.dailyContext?.workload.concentration
+  const energyForecast = concentration === 'high'
+    ? 'Carico alto'
+    : concentration === 'medium'
+      ? 'Carico moderato'
+      : 'Carico leggero'
+  const recommendation = data.contextualSecondBrain?.relevantToday[0]
+  const weatherAlert = data.weather?.eventAlerts[0]
+
+  return {
+    date: data.date,
+    greeting: 'Ciao, Simone.',
+    dayOverview,
+    priorities,
+    secondBrainInsight: recommendation
+      ? `${recommendation.concept}: ${recommendation.keyIdea}`
+      : '',
+    energyForecast,
+    newsletterNote: '',
+    weatherNote: weatherAlert
+      ? `${weatherAlert.eventTitle} (${weatherAlert.timeString}): ${weatherAlert.message}`
+      : '',
+    inputHash: computeInputHash(data),
+    generatedAt: now.toISOString(),
+  }
+}
+
 // ─── Synthesis generator ──────────────────────────────────────────────────────
 export async function generateDailySynthesis(data: AllSourceData): Promise<DailySynthesis> {
+  const groq = getGroq()
   const inputHash = computeInputHash(data)
   const todayFormatted = new Date(data.date + 'T12:00:00').toLocaleDateString('it-IT', {
     weekday: 'long',

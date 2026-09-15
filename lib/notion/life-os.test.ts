@@ -43,4 +43,27 @@ describe('Life OS Notion discovery', () => {
     expect(snapshot.items[0]).toMatchObject({ title: 'Esercizi', sourceDatabaseId: 'school-db' })
     expect(snapshot.sources).toEqual(expect.arrayContaining([expect.objectContaining({ sourceId: 'school-db', state: 'available' }), expect.objectContaining({ sourceId: 'blocked-db', state: 'partial' })]))
   })
+
+  it('checks independent databases concurrently', async () => {
+    let active = 0
+    let maxActive = 0
+    const client = {
+      pages: { retrieve: async ({ page_id }: { page_id: string }) => ({ ...notionPage(page_id, 'Life OS Managing'), parent: { type: 'workspace', workspace: true } }) },
+      blocks: { children: { list: async () => ({ results: [], has_more: false, next_cursor: null }) } },
+      databases: {
+        retrieve: async ({ database_id }: { database_id: string }) => {
+          active += 1
+          maxActive = Math.max(maxActive, active)
+          await new Promise(resolve => setTimeout(resolve, 10))
+          active -= 1
+          return { id: database_id, title: [{ plain_text: database_id }] }
+        },
+        query: async () => ({ results: [], has_more: false, next_cursor: null }),
+      },
+    } as unknown as LifeOsNotionClient
+
+    await fetchLifeOsData({ client, rootPageId: 'root', databaseIds: ['first-db', 'second-db'] })
+
+    expect(maxActive).toBe(2)
+  })
 })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runDailyOrchestrator } from '@/lib/orchestrator/daily-sync'
 import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
+import { invalidateDashboardCache } from '@/lib/cache/tags'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
       runDailyOrchestrator(forceRefresh),
       fetchNewsletterProjectState({ forceRefresh }),
     ])
+    invalidateDashboardCache()
     return NextResponse.json({
       synthesis: result.synthesis,
       sourceData: { ...result.sourceData, newsletter },

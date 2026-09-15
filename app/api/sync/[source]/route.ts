@@ -4,6 +4,7 @@ import { fetchCalendarData } from '@/lib/calendar/google'
 import { fetchLifeOsData } from '@/lib/notion/life-os'
 import { fetchWeatherData } from '@/lib/weather/client'
 import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
+import { invalidateDashboardCache, type DashboardCacheSource } from '@/lib/cache/tags'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -16,6 +17,14 @@ const FETCHERS: Record<Source, () => Promise<unknown>> = {
   'life-os': fetchLifeOsData,
   'weather': fetchWeatherData,
   'newsletter': () => fetchNewsletterProjectState({ forceRefresh: true }),
+}
+
+const CACHE_SOURCES: Record<Source, DashboardCacheSource> = {
+  'calendar': 'calendar',
+  'second-brain': 'secondBrain',
+  'life-os': 'lifeOs',
+  'weather': 'weather',
+  'newsletter': 'newsletter',
 }
 
 export async function GET(
@@ -31,6 +40,7 @@ export async function GET(
 
   try {
     const data = await fetcher()
+    invalidateDashboardCache(CACHE_SOURCES[source])
     return NextResponse.json({ data, source, fetchedAt: new Date().toISOString() })
   } catch (error) {
     console.error(`[api/sync/${source}]`, error)

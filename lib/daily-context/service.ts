@@ -13,6 +13,7 @@ export interface DailyContextOptions {
   lifeOs?: LifeOsOverview
   now?: Date
   timeZone?: string
+  includeNewsletter?: boolean
 }
 
 async function fetchNewsletterContext(): Promise<NewsletterContextState | null> {
@@ -39,7 +40,7 @@ export async function loadDailyContext(options: DailyContextOptions = {}): Promi
   const [calendarResult, lifeOsResult, newsletterResult] = await Promise.allSettled([
     options.calendar ? Promise.resolve(options.calendar) : fetchCalendarData(),
     options.lifeOs ? Promise.resolve(options.lifeOs) : (async () => buildLifeOsOverview(await fetchLifeOsData(), options.calendar ?? await fetchCalendarData(), { now, timeZone }))(),
-    fetchNewsletterContext(),
+    options.includeNewsletter === false ? Promise.resolve(null) : fetchNewsletterContext(),
   ])
   const calendar = calendarResult.status === 'fulfilled' ? calendarResult.value : { todayEvents: [], upcomingEvents: [], fetchedAt: now.toISOString() }
   const lifeOs = lifeOsResult.status === 'fulfilled' ? lifeOsResult.value : null
