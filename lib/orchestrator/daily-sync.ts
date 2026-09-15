@@ -14,6 +14,7 @@ import type { LifeOsSnapshot, LifeOsOverview } from '@/lib/life-os/types'
 import { loadDailyContext } from '@/lib/daily-context/service'
 import { getContextualSecondBrain } from '@/lib/second-brain/service'
 import type { SecondBrainResult } from '@/lib/second-brain/types'
+import { selectDailyPersistenceBackend } from './persistence'
 
 export interface OrchestratorResult {
   synthesis: DailySynthesis
@@ -29,10 +30,11 @@ function getTodayStr(): string {
 }
 
 const isCloudMode = process.env.PERSISTENCE_MODE === 'supabase' || Boolean(process.env.VERCEL)
+const persistenceBackend = selectDailyPersistenceBackend(isCloudMode, Boolean(dashboardSupabase))
 let migrationsRun = false
 
 async function ensureMigrations() {
-  if (!isCloudMode && !migrationsRun) {
+  if (persistenceBackend === 'sqlite' && !migrationsRun) {
     await runMigrations()
     migrationsRun = true
   }
@@ -92,9 +94,9 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
 
   // ─── Cache check ──────────────────────────────────────────────────────────
   if (!forceRefresh) {
-    if (isCloudMode && dashboardSupabase) {
+    if (persistenceBackend === 'supabase') {
       try {
-        const { data: rows, error } = await dashboardSupabase
+        const { data: rows, error } = await dashboardSupabase!
           .from('life_dashboard_syntheses')
           .select('*')
           .eq('date', date)
@@ -110,7 +112,7 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
       } catch (err) {
         console.warn('[Orchestrator] Supabase cache lookup warning:', err)
       }
-    } else {
+    } else if (persistenceBackend === 'sqlite') {
       const cached = await db
         .select()
         .from(dailySyntheses)
@@ -133,9 +135,9 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
     : buildFastDailySynthesis(sourceData)
 
   // ─── Cache persist ────────────────────────────────────────────────────────
-  if (isCloudMode && dashboardSupabase) {
+  if (persistenceBackend === 'supabase') {
     try {
-      await dashboardSupabase
+      await dashboardSupabase!
         .from('life_dashboard_syntheses')
         .upsert(
           {
@@ -150,7 +152,7 @@ export async function runDailyOrchestrator(forceRefresh = false): Promise<Orches
     } catch (err) {
       console.warn('[Orchestrator] Supabase cache write warning:', err)
     }
-  } else {
+  } else if (persistenceBackend === 'sqlite') {
     await db
       .insert(dailySyntheses)
       .values({
