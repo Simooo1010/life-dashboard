@@ -73,7 +73,8 @@ function parseJson<T>(value: string | null | undefined): T | null {
 
 export const secondBrainRepository: SecondBrainRepository = {
   async getContent(pageId, revision) {
-    if (isCloudMode && dashboardSupabase) {
+    if (isCloudMode) {
+      if (!dashboardSupabase) return null
       const { data, error } = await dashboardSupabase
         .from('knowledge_content_cache')
         .select('revision,document_json')
@@ -93,7 +94,8 @@ export const secondBrainRepository: SecondBrainRepository = {
   },
 
   async putContent(document) {
-    if (isCloudMode && dashboardSupabase) {
+    if (isCloudMode) {
+      if (!dashboardSupabase) return
       const { error } = await dashboardSupabase.from('knowledge_content_cache').upsert({
         page_id: document.nodeId,
         revision: document.revision,
@@ -120,7 +122,8 @@ export const secondBrainRepository: SecondBrainRepository = {
   },
 
   async getRun(cacheKey) {
-    if (isCloudMode && dashboardSupabase) {
+    if (isCloudMode) {
+      if (!dashboardSupabase) return null
       const { data, error } = await dashboardSupabase
         .from('second_brain_runs')
         .select('result_json')
@@ -142,7 +145,8 @@ export const secondBrainRepository: SecondBrainRepository = {
 
   async putRun(cacheKey, localDate, result) {
     const resultJson = JSON.stringify({ ...result, fromCache: false })
-    if (isCloudMode && dashboardSupabase) {
+    if (isCloudMode) {
+      if (!dashboardSupabase) return
       const { error } = await dashboardSupabase.from('second_brain_runs').upsert({
         cache_key: cacheKey,
         local_date: localDate,
@@ -166,7 +170,8 @@ export const secondBrainRepository: SecondBrainRepository = {
   },
 
   async getHistory(sinceDate) {
-    if (isCloudMode && dashboardSupabase) {
+    if (isCloudMode) {
+      if (!dashboardSupabase) return []
       const { data, error } = await dashboardSupabase
         .from('second_brain_history')
         .select('date,page_id')
@@ -186,7 +191,8 @@ export const secondBrainRepository: SecondBrainRepository = {
     const entries = uniqueHistoryEntries(localDate, relevantToday, rediscover)
     if (entries.length === 0) return
 
-    if (isCloudMode && dashboardSupabase) {
+    if (isCloudMode) {
+      if (!dashboardSupabase) return
       const { error } = await dashboardSupabase.from('second_brain_history').upsert(
         entries.map(entry => ({
           date: entry.date,

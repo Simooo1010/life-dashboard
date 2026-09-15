@@ -12,5 +12,25 @@ const dashboardKey =
   process.env.NEXT_PUBLIC_DASHBOARD_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+export function isDashboardSupabaseConfigurationValid(
+  url: string | undefined,
+  key: string | undefined,
+): boolean {
+  if (!url || !key) return false
+  if (/^(?:your|tuo)[-_]/i.test(key) || /[<>]/.test(key)) return false
+
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    const project = hostname.split('.')[0] ?? ''
+    return hostname.endsWith('.supabase.co')
+      && !/^(?:your|tuo)[-_]/i.test(project)
+      && !/[<>]/.test(project)
+  } catch {
+    return false
+  }
+}
+
 export const dashboardSupabase =
-  dashboardUrl && dashboardKey ? createClient(dashboardUrl, dashboardKey) : null
+  isDashboardSupabaseConfigurationValid(dashboardUrl, dashboardKey)
+    ? createClient(dashboardUrl!, dashboardKey!)
+    : null
