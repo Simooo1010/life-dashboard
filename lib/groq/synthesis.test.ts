@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildFastDailySynthesis, type AllSourceData } from './synthesis'
+import { buildFastDailySynthesis, computeInputHash, type AllSourceData } from './synthesis'
 
 function sourceData(): AllSourceData {
   return {
@@ -42,5 +42,53 @@ describe('buildFastDailySynthesis', () => {
     })])
     expect(synthesis.generatedAt).toBe('2026-09-14T08:00:00.000Z')
     expect(synthesis.inputHash).toHaveLength(64)
+  })
+})
+
+describe('computeInputHash', () => {
+  it('is unaffected by lifeOs/secondBrain fields that are only populated on forceRefresh', () => {
+    // Regression test: the orchestrator only fetches Life OS / Second Brain
+    // live on forceRefresh — every normal auto run sees them as empty
+    // placeholders. The hash must not depend on those fields, or every auto
+    // run right after a manual sync would look like "new input" and
+    // overwrite the good synthesis with a degraded one, freezing the
+    // displayed sync time on that placeholder hash.
+    const autoRun = sourceData()
+    const forceRun: AllSourceData = {
+      ...autoRun,
+      secondBrain: {
+        recentConcepts: [{ concept: 'Termodinamica', lastEditedAt: '2026-09-14T06:00:00.000Z' }],
+        unprocessedSources: [{ id: 'src-1', status: 'unprocessed' }],
+        fetchedAt: '2026-09-14T07:00:00.000Z',
+      },
+      dailyContext: { ...autoRun.dailyContext!, contextHash: 'different-context-hash' },
+      contextualSecondBrain: {
+        relevantToday: [{ id: 'rec-1' }],
+        rediscover: [],
+        generatedAt: '2026-09-14T07:00:00.000Z',
+        contextHash: 'different-context-hash',
+        knowledgeRevisionHash: 'rev-1',
+        sourceStatuses: [],
+        fromCache: false,
+      },
+      lifeOs: {
+        today: [{ title: 'Compito', date: '2026-09-14', status: 'pending' }],
+        tomorrow: [],
+        nextSevenDays: [],
+        anomalies: [],
+      },
+    } as unknown as AllSourceData
+
+    expect(computeInputHash(forceRun)).toBe(computeInputHash(autoRun))
+  })
+
+  it('still changes when calendar or weather actually change', () => {
+    const base = sourceData()
+    const changed: AllSourceData = {
+      ...base,
+      weather: { summaryForAI: 'pioggia forte' } as AllSourceData['weather'],
+    }
+
+    expect(computeInputHash(changed)).not.toBe(computeInputHash(base))
   })
 })

@@ -50,17 +50,19 @@ export interface AllSourceData {
 }
 
 // ─── Hash computation ─────────────────────────────────────────────────────────
+// Only fields that are genuinely re-fetched on every run (calendar, weather)
+// belong here. Life OS / Second Brain / daily-context / contextual-second-brain
+// are only fetched live on forceRefresh — on a normal auto run they arrive as
+// empty placeholders (see lib/orchestrator/daily-sync.ts). Including them would
+// make every auto run's hash mismatch whatever a manual force-sync just
+// persisted, triggering a spurious regeneration that overwrites the good
+// synthesis with a degraded one and then "freezes" on that placeholder hash.
 export function computeInputHash(data: AllSourceData): string {
   const payload = JSON.stringify({
     date: data.date,
     events: data.calendar.todayEvents.map(e => `${e.title}|${e.start}|${e.category}`).sort(),
     upcomingEvents: data.calendar.upcomingEvents.map(e => `${e.title}|${e.start}`).slice(0, 10).sort(),
-    recentConcepts: data.secondBrain.recentConcepts.map(c => c.concept).slice(0, 10).sort(),
-    unprocessedCount: data.secondBrain.unprocessedSources.length,
     weatherSummary: data.weather?.summaryForAI ?? '',
-    contextHash: data.dailyContext?.contextHash ?? '',
-    recommendationIds: data.contextualSecondBrain?.relevantToday.map(item => item.id) ?? [],
-    lifeOs: data.lifeOs ? { today: data.lifeOs.today.map(i => `${i.title}|${i.date}|${i.status}`), tomorrow: data.lifeOs.tomorrow.map(i => `${i.title}|${i.date}|${i.status}`), nextSevenDays: data.lifeOs.nextSevenDays.map(d => `${d.date}|${d.items.length}`), anomalies: data.lifeOs.anomalies.map(a => `${a.code}|${a.itemId ?? ''}`) } : null,
   })
   return createHash('sha256').update(payload).digest('hex')
 }
