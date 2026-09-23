@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getIronSession } from 'iron-session'
+import { SESSION_OPTIONS } from '@/lib/auth/config'
 
-const SESSION_OPTIONS = {
-  cookieName: 'life_dashboard_session',
-  password: process.env.SESSION_PASSWORD!,
-  cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: 'strict' as const,
-  },
-}
-
-// Public paths that don't require auth
-const PUBLIC_PATHS = ['/login', '/api/auth/login']
+const PUBLIC_PATHS = new Set(['/api/auth/login', '/manifest.webmanifest', '/icon', '/apple-icon'])
 
 interface DashboardSessionData {
   authenticated?: boolean
@@ -22,8 +12,8 @@ interface DashboardSessionData {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+  // Installation resources and the login endpoint must be available before auth.
+  if (PUBLIC_PATHS.has(pathname)) {
     return NextResponse.next()
   }
 
@@ -31,6 +21,14 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
   // @ts-ignore — iron-session can work with NextRequest cookies
   const session = await getIronSession<DashboardSessionData>(request.cookies, SESSION_OPTIONS)
+
+  // A Home Screen app installed while logged out may relaunch at /login.
+  // Preserve the saved session by returning authenticated users to the app.
+  if (pathname === '/login') {
+    return session.authenticated
+      ? NextResponse.redirect(new URL('/', request.url))
+      : response
+  }
 
   if (!session.authenticated) {
     // For API routes, return 401

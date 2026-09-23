@@ -1,22 +1,12 @@
 import { getIronSession, IronSessionData } from 'iron-session'
 import { cookies } from 'next/headers'
+import { SESSION_OPTIONS } from './config'
 
 declare module 'iron-session' {
   interface IronSessionData {
     authenticated: boolean
     authenticatedAt?: string
   }
-}
-
-const SESSION_OPTIONS = {
-  cookieName: 'life_dashboard_session',
-  password: process.env.SESSION_PASSWORD!,
-  cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: 'strict' as const,
-    maxAge: 60 * 60 * 24 * 30, // 30 days
-  },
 }
 
 export async function getSession() {

@@ -92,3 +92,9 @@
     @apply text-xs font-semibold tracking-wider uppercase text-ink-muted;
   }
 }
+
+@layer utilities {
+  .safe-area-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
