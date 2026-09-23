@@ -2,7 +2,11 @@ import Groq from 'groq-sdk'
 import { createHash } from 'crypto'
 import type { FinanceSnapshot } from '@/lib/finance/types'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+let groq: Groq | null = null
+function getGroq(): Groq {
+  groq ??= new Groq({ apiKey: process.env.GROQ_API_KEY })
+  return groq
+}
 
 export interface FinanceInsights {
   observations: string[]
@@ -90,7 +94,7 @@ REGOLE FONDAMENTALI:
 Rispondi SOLO con JSON valido in questa forma esatta, senza testo o markdown attorno:
 { "observations": ["...", "..."] }`
 
-  const response = await groq.chat.completions.create({
+  const response = await getGroq().chat.completions.create({
     model: 'qwen/qwen3.8-27b',
     messages: [{ role: 'user', content: prompt }],
     max_tokens: mode === 'compact' ? 500 : 900,

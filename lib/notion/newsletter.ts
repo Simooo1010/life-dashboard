@@ -87,6 +87,8 @@ export async function fetchNewsletterProjectState(options: { forceRefresh?: bool
     cache = { value, expiresAt: Date.now() + CACHE_TTL_MS }
     return value
   })()
-  if (!options.forceRefresh) inFlight = request
+  // A forced fetch is also shared, so callers that run alongside a manual
+  // sync reuse its fresh result instead of downloading the page again.
+  inFlight = request
   try { return await request } finally { if (inFlight === request) inFlight = null }
 }

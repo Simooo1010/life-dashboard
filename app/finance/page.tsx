@@ -253,7 +253,7 @@ export default async function FinancePage() {
 
         {/* ─── Footer ──────────────────────────────────────────────── */}
         <footer className="text-center text-2xs text-ink-faint pb-2">
-          Dati sincronizzati alle {new Date(snapshot.fetchedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+          Dati sincronizzati alle {new Date(snapshot.fetchedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' })}
         </footer>
       </div>
     </AppShell>

@@ -3,8 +3,8 @@ import { fetchLifeOsData } from '@/lib/notion/life-os'
 import { buildLifeOsOverview } from '@/lib/life-os/interpret'
 import type { LifeOsOverview } from '@/lib/life-os/types'
 import { buildDailyContext } from './build'
-import { notion, NOTION_PAGES } from '@/lib/notion/client'
-import { fetchPageContent } from '@/lib/notion/blocks'
+import { fetchNewsletterProjectState } from '@/lib/notion/newsletter'
+import type { NewsletterStateItem } from '@/lib/newsletter/types'
 import type { NewsletterContextState } from './build'
 import type { DailyContextResult } from './types'
 
@@ -16,20 +16,21 @@ export interface DailyContextOptions {
   includeNewsletter?: boolean
 }
 
+// Reuses the newsletter interpreter (and its in-process cache) so the daily
+// context sees the same current focus as the newsletter page, instead of a
+// second full page download scanned for the first "focus"-looking line.
 async function fetchNewsletterContext(): Promise<NewsletterContextState | null> {
   if (!process.env.NOTION_TOKEN && !process.env.NOTION_TOKEN_SECOND_BRAIN) return null
   try {
-    const page = await notion.pages.retrieve({ page_id: NOTION_PAGES.newsletterBrief })
-    const content = await fetchPageContent(NOTION_PAGES.newsletterBrief)
-    const lines = content.split('\n').map(line => line.trim()).filter(Boolean)
-    const matching = (pattern: RegExp) => lines.find(line => pattern.test(line))?.replace(/^[-•#\s]+/, '').trim()
+    const state = await fetchNewsletterProjectState()
+    const item = (entry: NewsletterStateItem) => ({ id: entry.id, title: entry.title, ...(entry.detail ? { detail: entry.detail } : {}), ...(entry.date ? { date: entry.date } : {}) })
     return {
-      pageUrl: 'url' in page && typeof page.url === 'string' ? page.url : 'https://app.notion.com/p/' + NOTION_PAGES.newsletterBrief.replace(/-/g, ''),
-      fetchedAt: new Date().toISOString(),
-      currentFocus: matching(/focus|priorit|obiettivo|current/i),
-      nextMilestone: matching(/milestone|next|prossim|scadenza/i),
-      blockers: [],
-      milestones: [],
+      pageUrl: state.source.pageUrl,
+      fetchedAt: state.source.fetchedAt,
+      currentFocus: state.pulse.currentFocus,
+      nextMilestone: state.pulse.nextMilestone,
+      blockers: state.blockers.map(item),
+      milestones: state.milestones.map(item),
     }
   } catch { return null }
 }

@@ -136,6 +136,12 @@ const MONTHS: Record<string, string> = {
 function extractDate(text: string): string | undefined {
   const iso = text.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/)
   if (iso) return iso[0]
+  // A range like "17–19 September 2026" is dated by when it starts.
+  const range = text.match(/\b(\d{1,2})\s*[–-]\s*\d{1,2}\s+([A-Za-zÀ-ÿ]+)\s+(20\d{2})\b/)
+  if (range) {
+    const month = MONTHS[range[2].toLowerCase()]
+    if (month) return `${range[3]}-${month}-${range[1].padStart(2, '0')}`
+  }
   const dayFirst = text.match(/\b(\d{1,2})\s+([A-Za-zÀ-ÿ]+)\s+(20\d{2})\b/)
   if (dayFirst) {
     const month = MONTHS[dayFirst[2].toLowerCase()]
@@ -178,6 +184,17 @@ function dedupe<T extends { title?: string; name?: string }>(entries: T[]): T[] 
   })
 }
 
+// The brief is append-only, so a later definition of the same component
+// (e.g. a confirmed launch role) replaces the earlier one in place.
+function dedupeKeepLatest<T extends { name: string }>(entries: T[]): T[] {
+  const latest = new Map<string, T>()
+  for (const entry of entries) {
+    const key = slug(entry.name)
+    if (key) latest.set(key, entry)
+  }
+  return entries.filter(entry => latest.get(slug(entry.name)) === entry)
+}
+
 export function reconcileProjectState(state: NewsletterProjectState, blocks: NewsletterSourceBlock[]): NewsletterProjectState {
   const byId = new Map(blocks.map(block => [block.id, block]))
   const indexes = new Map(blocks.map((block, index) => [block.id, index]))
@@ -189,8 +206,21 @@ export function reconcileProjectState(state: NewsletterProjectState, blocks: New
   const sortCurrent = <T extends { date?: string; evidenceBlockIds: string[] }>(entries: T[]) => [...entries].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || evidenceIndex(b, indexes) - evidenceIndex(a, indexes))
 
   const topicDedupe = (entries: NewsletterStateItem[]) => entries.filter((entry, index) => !entries.slice(0, index).some(existing => sameTopic(existing.title, entry.title)))
-  const decisions = topicDedupe(sortCurrent(dedupe(grounded(state.decisions).filter(entry => !superseded(entry))))).slice(0, 6)
-  const resolved = (entry: NewsletterStateItem) => decisions.some(decision => evidenceIndex(decision, indexes) >= evidenceIndex(entry, indexes) && sameTopic(decision.title, entry.title))
+  const allDecisions = topicDedupe(sortCurrent(dedupe(grounded(state.decisions).filter(entry => !superseded(entry)))))
+  const decisions = allDecisions.slice(0, 16)
+  const evidenceText = (entry: { evidenceBlockIds: string[] }) => entry.evidenceBlockIds.map(id => {
+    const block = byId.get(id)
+    return block ? `${block.headingPath.at(-1) ?? ''} ${block.text}` : ''
+  }).join(' ')
+  const section = (entry: { evidenceBlockIds: string[] }) => byId.get(entry.evidenceBlockIds[0])?.headingPath[0]
+  // A later decision in the same top-level section that covers most of the
+  // same ground (e.g. "Scope decision" after "Scope risk: not yet decided …").
+  const settledInSection = (decision: NewsletterStateItem, entry: NewsletterStateItem) => {
+    if (!section(entry) || section(decision) !== section(entry)) return false
+    const a = tokens(evidenceText(decision)); const b = tokens(evidenceText(entry))
+    return [...a].filter(token => b.has(token)).length >= 4
+  }
+  const resolved = (entry: NewsletterStateItem) => allDecisions.some(decision => evidenceIndex(decision, indexes) >= evidenceIndex(entry, indexes) && (sameTopic(decision.title, entry.title) || settledInSection(decision, entry)))
   const filterItems = (entries: NewsletterStateItem[], allowSuperseded = false) => sortCurrent(dedupe(grounded(entries).filter(entry => allowSuperseded || !superseded(entry)))).slice(0, 8)
   const recentChanges = filterItems(state.recentChanges, true).slice(0, 5)
   const milestones = filterItems(state.milestones).slice(0, 6)
@@ -208,7 +238,7 @@ export function reconcileProjectState(state: NewsletterProjectState, blocks: New
     recommendations: filterItems(state.recommendations).filter(entry => !resolved(entry)).slice(0, 6),
     openQuestions: filterItems(state.openQuestions).filter(entry => !resolved(entry)).slice(0, 6),
     blockers: filterItems(state.blockers).slice(0, 5),
-    components: dedupe(grounded(state.components)).slice(0, 12),
+    components: dedupeKeepLatest(grounded(state.components)).slice(0, 12),
     recentChanges,
     milestones: grounded(state.milestones).slice(0, 6),
     additionalSections: state.additionalSections.map(section => ({ ...section, items: filterItems(section.items) })).filter(section => section.items.length > 0),
@@ -272,7 +302,7 @@ function interpretDeterministically(content: NewsletterPageContent): NewsletterP
     const datedUpdate = Boolean(extractDate(text)) && /^(?:status update|update|operating[- ]model update|naming status update)/i.test(text)
     if (datedUpdate && /\b(supersed(?:e|ed|es|ing)?|status update|update\s*[—–-])\b/i.test(text)) state.recentChanges.push(item(block, 'change'))
 
-    if (/core architecture|ecosystem components?|channels?/i.test(path) && /bulleted_list_item|numbered_list_item/.test(block.type) && /(?:=|[—–])/.test(text)) state.components.push(component(block))
+    if (/core architecture|ecosystem components?|launch components?|channels?/i.test(path) && /bulleted_list_item|numbered_list_item/.test(block.type) && /(?:=|[—–])/.test(text)) state.components.push(component(block))
 
     const phaseMatch = text.match(/^phase\s+(\d+)\s*[—–:-]\s*(.+)$/i)
     if (/rollout phases?/i.test(path) && phaseMatch) {
@@ -284,7 +314,176 @@ function interpretDeterministically(content: NewsletterPageContent): NewsletterP
     if (rolloutPhase === activeRolloutPhase && /rollout phases?/i.test(path) && /bulleted_list_item|numbered_list_item/.test(block.type)) state.milestones.push(item(block, 'milestone'))
   }
 
+  applyChronology(state, content.blocks)
   return reconcileProjectState(state, content.blocks)
+}
+
+// ─── Chronological layer ─────────────────────────────────────────────────────
+// The brief is an append-only log: newer dated sections ("… — confirmed
+// decisions (15 September 2026)", "Issue #0 — Thinking phase log (18 …)")
+// override older working directions. The keyword rules above only know the
+// section names that existed when they were written, so without this pass
+// the dashboard keeps presenting the oldest "current" state forever.
+
+const DATE_TEXT = String.raw`(?:(?:week of|settimana del)\s+)?(?:\d{1,2}(?:\s*[–-]\s*\d{1,2})?\s+[A-Za-zÀ-ÿ]+\s+20\d{2}|20\d{2}-\d{2}-\d{2})`
+const CONFIRMED_HEADING = /\bconfirmed decisions?\b|\bconfirmed by simone\b|\bdecision\b.*\bconfirmed\b/i
+const NOT_DECISION_HEADING = /\bnot decisions?\b|\bassistant notes?\b/i
+const STATUS_LINE = /^status\s*:\s*/i
+const DECISION_STATUS_LINE = /^decision status\s*:/i
+const IN_PROGRESS = /\b(in progress|open|to be decided|to do|in corso|da fare)\b/i
+
+export function cleanHeading(text: string): string {
+  return text
+    .replace(/^\d+\.\s*/, '')
+    .replace(/\s*\(([^)]*)\)\s*$/, (match, inner: string) => new RegExp(DATE_TEXT, 'i').test(inner) ? '' : match)
+    .replace(new RegExp(String.raw`\s*[—–-]\s*${DATE_TEXT}\s*$`, 'i'), '')
+    .replace(new RegExp(String.raw`^${DATE_TEXT}\s*[—–-]\s*`, 'i'), '')
+    .trim()
+}
+
+function withoutDecisionSuffix(title: string): string {
+  return title.replace(/\s*[—–-]\s*(?:confirmed decisions?|completion record)\s*$/i, '').trim()
+}
+
+function latestDate(texts: string[]): string | undefined {
+  return texts.map(extractDate).filter((date): date is string => Boolean(date)).sort().at(-1)
+}
+
+interface ChronoSection {
+  heading: NewsletterSourceBlock
+  index: number
+  date?: string
+  status?: NewsletterSourceBlock
+  children: NewsletterSourceBlock[]
+}
+
+function splitSections(blocks: NewsletterSourceBlock[], level: 'heading_1' | 'heading_2'): ChronoSection[] {
+  const sections: ChronoSection[] = []
+  blocks.forEach((block, index) => {
+    if (block.type === level) sections.push({ heading: block, index, children: [] })
+    else if (level === 'heading_2' && block.type === 'heading_1') sections.push({ heading: block, index: -1, children: [] })
+    else sections.at(-1)?.children.push(block)
+  })
+  return sections.filter(section => section.index >= 0).map(section => ({
+    ...section,
+    date: latestDate([section.heading.text, ...section.children.filter(child => child.type.startsWith('heading_')).map(child => child.text)]),
+    status: section.children.find(child => !child.type.startsWith('heading_') && child.headingPath.length === section.heading.headingPath.length && STATUS_LINE.test(child.text)),
+  }))
+}
+
+// First substantive statement of a run of blocks; a lead-in ending with ":"
+// is completed by the list items that follow it.
+function summarize(blocks: NewsletterSourceBlock[]): { text: string; evidence: string[] } | null {
+  const content = blocks.filter(block => !block.type.startsWith('heading_') && !STATUS_LINE.test(block.text) && !DECISION_STATUS_LINE.test(block.text) && block.text.trim())
+  const first = content[0]
+  if (!first) return null
+  if (/list_item$/.test(first.type) || /:\s*$/.test(first.text)) {
+    const lead = /list_item$/.test(first.type) ? [] : [first]
+    const items = content.slice(lead.length).filter((block, index, all) => /list_item$/.test(block.type) && all.slice(0, index).every(prev => /list_item$/.test(prev.type))).slice(0, 4)
+    const listText = items.map(block => block.text.replace(/[;.]\s*$/, '')).join('; ')
+    return { text: [lead[0]?.text.replace(/:\s*$/, ':'), listText].filter(Boolean).join(' '), evidence: [...lead, ...items].map(block => block.id) }
+  }
+  return { text: first.text, evidence: [first.id] }
+}
+
+function chronoItem(prefix: string, title: string, date: string | undefined, evidence: string[]): NewsletterStateItem {
+  return { id: `${prefix}-${slug(evidence[0] ?? '') || slug(title)}`, title: concise(title), ...(date ? { date } : {}), evidenceBlockIds: evidence }
+}
+
+export function applyChronology(state: NewsletterProjectState, blocks: NewsletterSourceBlock[]): void {
+  const byId = new Map(blocks.map(block => [block.id, block]))
+  const sectionDate = (block: NewsletterSourceBlock | undefined) => block ? latestDate(block.headingPath) : undefined
+
+  // Undated items inherit the date of the section they were written in.
+  for (const key of ['decisions', 'hypotheses', 'recommendations', 'openQuestions', 'blockers', 'recentChanges', 'milestones'] as const) {
+    for (const entry of state[key]) entry.date ??= sectionDate(byId.get(entry.evidenceBlockIds[0]))
+  }
+
+  const topSections = splitSections(blocks, 'heading_1')
+  const subSections = splitSections(blocks, 'heading_2')
+  let latestConfirmed: string | undefined
+
+  // Confirmed sections: one decision per sub-heading, or one for the whole
+  // section when it has no sub-headings.
+  for (const section of topSections) {
+    const confirmedByStatus = section.status && /^status\s*:\s*(confirmed|locked)/i.test(section.status.text)
+    if (!CONFIRMED_HEADING.test(section.heading.text) && !confirmedByStatus) continue
+    if (section.date && (!latestConfirmed || section.date > latestConfirmed)) latestConfirmed = section.date
+    const subs = subSections.filter(sub => sub.index > section.index && sub.heading.headingPath[0] === section.heading.text && !NOT_DECISION_HEADING.test(sub.heading.text))
+    if (subs.length === 0) {
+      const summary = summarize(section.children)
+      if (summary) state.decisions.push(chronoItem('decision', `${withoutDecisionSuffix(cleanHeading(section.heading.text))}: ${summary.text}`, section.date, [section.heading.id, ...summary.evidence]))
+      continue
+    }
+    for (const sub of subs) {
+      const summary = summarize(sub.children)
+      if (summary) state.decisions.push(chronoItem('decision', `${cleanHeading(sub.heading.text)}: ${summary.text}`, section.date ?? sub.date, [sub.heading.id, ...summary.evidence]))
+    }
+  }
+
+  // "Confirmed by Simone" lists inside otherwise in-progress sections.
+  for (const sub of subSections) {
+    if (!/\bconfirmed by simone\b/i.test(sub.heading.text) || NOT_DECISION_HEADING.test(sub.heading.text)) continue
+    if (topSections.some(section => section.heading.text === sub.heading.headingPath[0] && CONFIRMED_HEADING.test(section.heading.text))) continue
+    const date = sub.date ?? sectionDate(sub.heading)
+    const listItems = sub.children.filter(block => /list_item$/.test(block.type) && block.headingPath.length === sub.heading.headingPath.length)
+    if (listItems.length > 0) {
+      for (const child of listItems) state.decisions.push(chronoItem('decision', child.text, date, [child.id]))
+      continue
+    }
+    const summary = summarize(sub.children)
+    const name = cleanHeading(sub.heading.text).replace(/\s*[—–-]\s*confirmed by simone\s*$/i, '')
+    if (summary) state.decisions.push(chronoItem('decision', `${name}: ${summary.text}`, date, [sub.heading.id, ...summary.evidence]))
+  }
+
+  // The brief states that confirmed sections override earlier working
+  // directions and recommendations, so anything older is no longer current.
+  if (latestConfirmed) {
+    const current = (entry: NewsletterStateItem) => Boolean(entry.date && entry.date >= latestConfirmed!)
+    state.hypotheses = state.hypotheses.filter(current)
+    state.recommendations = state.recommendations.filter(current)
+  }
+
+  // Dated headings are the page's own change log.
+  for (const section of [...topSections, ...subSections]) {
+    const ownDate = extractDate(section.heading.text)
+    if (!ownDate) continue
+    const parent = section.heading.type === 'heading_2' ? section.heading.headingPath[0] : undefined
+    const name = [parent && cleanHeading(parent), cleanHeading(section.heading.text)].filter(Boolean).join(' › ')
+    const status = section.status?.text.replace(STATUS_LINE, '').trim()
+    state.recentChanges.push(chronoItem('change', status ? `${name} — ${status}` : name, ownDate, [section.heading.id]))
+  }
+
+  const dated = topSections.filter(section => section.date).sort((a, b) => a.date!.localeCompare(b.date!) || a.index - b.index)
+
+  const phaseSection = dated.filter(section => /next active phase|stepping stones?|execution/i.test(section.heading.text)).at(-1)
+  if (phaseSection) {
+    state.pulse.phase = cleanHeading(phaseSection.heading.text).replace(/^next active phase\s*[—–:-]?\s*/i, '')
+    state.pulse.evidenceBlockIds.phase = [phaseSection.heading.id]
+  }
+
+  const statusSection = dated.filter(section => section.status).at(-1)
+  if (statusSection?.status) {
+    const name = withoutDecisionSuffix(cleanHeading(statusSection.heading.text))
+    const status = statusSection.status.text.replace(STATUS_LINE, '').trim()
+    state.pulse.currentState = concise(`${name}: ${status}`)
+    state.pulse.evidenceBlockIds.currentState = [statusSection.status.id]
+    if (IN_PROGRESS.test(status.split(/[.!?]/)[0] ?? '')) {
+      const remaining = status.split(/(?<=[.!?])\s+/).find(sentence => /\b(still to do|to do|remaining|next|da fare|mancano)\b/i.test(sentence))
+      state.pulse.currentFocus = concise(`${name}${remaining ? `: ${remaining}` : ''}`)
+      state.pulse.evidenceBlockIds.currentFocus = [statusSection.status.id]
+    }
+  }
+
+  const latestChange = [...topSections, ...subSections]
+    .filter(section => extractDate(section.heading.text))
+    .sort((a, b) => extractDate(a.heading.text)!.localeCompare(extractDate(b.heading.text)!) || a.heading.headingPath.length - b.heading.headingPath.length || blocks.indexOf(a.heading) - blocks.indexOf(b.heading))
+    .at(-1)
+  if (latestChange) {
+    const parent = latestChange.heading.type === 'heading_2' ? latestChange.heading.headingPath[0] : undefined
+    state.pulse.latestMeaningfulChange = [parent && cleanHeading(parent), cleanHeading(latestChange.heading.text)].filter(Boolean).join(' › ')
+    state.pulse.evidenceBlockIds.latestMeaningfulChange = [latestChange.heading.id]
+  }
 }
 
 export async function interpretNewsletterProject(content: NewsletterPageContent): Promise<NewsletterProjectState> {

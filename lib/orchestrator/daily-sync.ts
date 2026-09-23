@@ -16,6 +16,7 @@ import { getContextualSecondBrain } from '@/lib/second-brain/service'
 import type { SecondBrainResult } from '@/lib/second-brain/types'
 import { selectDailyPersistenceBackend } from './persistence'
 import { recordSyncRun, type SyncSource, type SyncTrigger } from '@/lib/sync/log'
+import { toLocalDateKey } from '@/lib/life-os/dates'
 
 export interface OrchestratorResult {
   synthesis: DailySynthesis
@@ -32,7 +33,7 @@ export interface OrchestratorOptions {
 }
 
 function getTodayStr(): string {
-  return new Date().toISOString().split('T')[0]
+  return toLocalDateKey(new Date(), process.env.LIFE_OS_TIMEZONE ?? 'Europe/Rome')
 }
 
 const isCloudMode = process.env.PERSISTENCE_MODE === 'supabase' || Boolean(process.env.VERCEL)
@@ -156,14 +157,24 @@ export async function runDailyOrchestrator(
   }
 
   // ─── Generate new synthesis ───────────────────────────────────────────────
+  // A failed model call must not throw away the freshly fetched sources:
+  // the failure stays in the sync log and the grounded fast synthesis is used.
   const synthesis = forceRefresh
     ? await recordSyncRun('synthesis', trigger, () => generateDailySynthesis(sourceData))
+      .then(result => {
+        options.onProgress?.('synthesis', 'done')
+        return result
+      })
+      .catch(error => {
+        options.onProgress?.('synthesis', 'error', error instanceof Error ? error.message : String(error))
+        return buildFastDailySynthesis(sourceData)
+      })
     : buildFastDailySynthesis(sourceData)
 
   // ─── Cache persist ────────────────────────────────────────────────────────
   if (persistenceBackend === 'supabase') {
     try {
-      await dashboardSupabase!
+      const { error } = await dashboardSupabase!
         .from('life_dashboard_syntheses')
         .upsert(
           {
@@ -175,6 +186,7 @@ export async function runDailyOrchestrator(
           },
           { onConflict: 'date' },
         )
+      if (error) console.error('[Orchestrator] Supabase cache write failed:', error.message)
     } catch (err) {
       console.warn('[Orchestrator] Supabase cache write warning:', err)
     }

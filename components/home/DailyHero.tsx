@@ -14,6 +14,7 @@ export function DailyHero({ greeting, dayOverview, energyForecast, fromCache, ca
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+    timeZone: 'Europe/Rome',
   })
 
   return (

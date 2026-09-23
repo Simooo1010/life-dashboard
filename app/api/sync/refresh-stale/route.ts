@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { getLastSuccessMap } from '@/lib/sync/log'
-import { invalidateDashboardCache, type DashboardCacheSource } from '@/lib/cache/tags'
+import { invalidateBackgroundSource, type BackgroundRefreshSource } from '@/lib/cache/tags'
 import {
   loadCachedCalendar,
   loadCachedFinanceSnapshot,
@@ -17,7 +17,6 @@ export const dynamic = 'force-dynamic'
 // fresh via a dedicated unstable_cache loader on visit, so refreshing them
 // again here on every page load doubles Notion traffic for no benefit and
 // trips 429s in production.
-type BackgroundRefreshSource = Extract<DashboardCacheSource, 'calendar' | 'finance' | 'weather'>
 
 // Mirrors the unstable_cache `revalidate` windows in lib/cache/dashboard-data.ts.
 const TTL_MS: Record<BackgroundRefreshSource, number> = {
@@ -58,7 +57,7 @@ export async function POST() {
 
       if (staleSources.length === 0) return
 
-      staleSources.forEach(source => invalidateDashboardCache(source))
+      staleSources.forEach(source => invalidateBackgroundSource(source))
       await Promise.allSettled(staleSources.map(source => REFRESHERS[source]()))
     } catch (err) {
       console.warn('[refresh-stale] background refresh failed:', err)

@@ -1,6 +1,8 @@
 -- ==============================================================================
 -- Life Dashboard - Supabase Cache Setup
--- Esegui questo script nel SQL Editor del tuo nuovo progetto Supabase
+-- Esegui questo script nel SQL Editor del tuo progetto Supabase.
+-- Può essere rieseguito in sicurezza su un progetto esistente: crea solo ciò
+-- che manca (es. la tabella sync_log aggiunta dopo il primo setup).
 -- ==============================================================================
 
 create table if not exists life_dashboard_syntheses (
@@ -15,6 +17,7 @@ create table if not exists life_dashboard_syntheses (
 -- Abilita Row Level Security e crea una policy di accesso per il client anon
 alter table life_dashboard_syntheses enable row level security;
 
+drop policy if exists "Allow anon access for life dashboard" on life_dashboard_syntheses;
 create policy "Allow anon access for life dashboard"
   on life_dashboard_syntheses
   for all
@@ -48,10 +51,13 @@ alter table knowledge_content_cache enable row level security;
 alter table second_brain_runs enable row level security;
 alter table second_brain_history enable row level security;
 
+drop policy if exists "Allow anon access for knowledge content cache" on knowledge_content_cache;
 create policy "Allow anon access for knowledge content cache"
   on knowledge_content_cache for all using (true) with check (true);
+drop policy if exists "Allow anon access for second brain runs" on second_brain_runs;
 create policy "Allow anon access for second brain runs"
   on second_brain_runs for all using (true) with check (true);
+drop policy if exists "Allow anon access for second brain history" on second_brain_history;
 create policy "Allow anon access for second brain history"
   on second_brain_history for all using (true) with check (true);
 
@@ -74,5 +80,6 @@ create index if not exists sync_log_started_at_idx on sync_log (started_at desc)
 
 alter table sync_log enable row level security;
 
+drop policy if exists "Allow anon access for sync log" on sync_log;
 create policy "Allow anon access for sync log"
   on sync_log for all using (true) with check (true);

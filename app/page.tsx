@@ -23,6 +23,7 @@ import {
 import type { LifeOsOverview } from '@/lib/life-os/types'
 import type { SecondBrainResult } from '@/lib/second-brain/types'
 import { HomeSectionFallback } from '@/components/home/HomeSectionFallback'
+import { formatTime } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -142,10 +143,7 @@ async function HomeUpdatedAt({ dataPromise }: { dataPromise: Promise<Orchestrato
   if (!data?.synthesis.generatedAt) return null
   return (
     <footer className="text-center text-2xs text-ink-faint pb-2">
-      Aggiornato {new Date(data.synthesis.generatedAt).toLocaleTimeString('it-IT', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })}
+      Aggiornato {formatTime(data.synthesis.generatedAt)}
       {data.fromCache && ' · da cache'}
     </footer>
   )

@@ -162,3 +162,71 @@ describe('operational block selection', () => {
     expect(ids).not.toContain('mission')
   })
 })
+
+describe('chronological interpretation of an append-only brief', () => {
+  const h1 = (id: string, text: string) => block(id, text, 'heading_1', [text])
+  const h2 = (id: string, parent: string, text: string) => block(id, text, 'heading_2', [parent, text])
+  const p = (id: string, text: string, path: string[], type = 'paragraph') => block(id, text, type, path)
+
+  const OLD = '26. Next active phase — Operating model'
+  const OLD_UPDATE = 'Operating-model update — 11 September 2026'
+  const BLUEPRINT = '27. Launch Blueprint v1 — confirmed decisions (15 September 2026)'
+  const CADENCE = '30. Initial publishing cadence — confirmed decision (15 September 2026)'
+  const ISSUE = '32. Issue #0 — Thinking phase log (18 September 2026)'
+  const NOTES = 'Assistant notes — NOT decisions'
+  const SCOPE = 'Scope decision — confirmed by Simone (18 September 2026)'
+  const blocks = [
+    h1('old', OLD),
+    h2('old-update', OLD, OLD_UPDATE),
+    p('old-status', 'Status: working direction agreed in discussion; details still to be specified.', [OLD, OLD_UPDATE]),
+    p('freemium', 'Working direction: use a freemium structure, but do not make personalisation the only reason to pay.', [OLD, OLD_UPDATE, 'Free vs premium model']),
+    p('website-rec', 'Assistant recommendation: build a website MVP, not the final technical platform.', [OLD, OLD_UPDATE, 'Website strategy']),
+    h1('blueprint', BLUEPRINT),
+    p('blueprint-status', 'Status: CONFIRMED / LOCKED — 15 September 2026.', [BLUEPRINT]),
+    h2('components-h', BLUEPRINT, 'Launch components'),
+    p('components-lead', 'The MVP launch consists of exactly:', [BLUEPRINT, 'Launch components']),
+    p('c-web', 'Website', [BLUEPRINT, 'Launch components'], 'bulleted_list_item'),
+    p('c-sub', 'Substack', [BLUEPRINT, 'Launch components'], 'bulleted_list_item'),
+    p('c-ig', 'Instagram', [BLUEPRINT, 'Launch components'], 'bulleted_list_item'),
+    p('components-status', 'Decision status: CONFIRMED.', [BLUEPRINT, 'Launch components']),
+    h1('cadence', CADENCE),
+    p('cadence-status', 'Status: CONFIRMED / LOCKED — 15 September 2026.', [CADENCE]),
+    p('cadence-body', 'For the first six weeks, publish one core Substack issue per week.', [CADENCE]),
+    h1('issue', ISSUE),
+    p('issue-status', 'Status: IN PROGRESS. Phases 1–2 confirmed by Simone. Phase 3 (research) and Phase 4 (angle) are still to do.', [ISSUE]),
+    h2('notes', ISSUE, NOTES),
+    p('scope-risk', 'Scope risk: the outcome has two halves (scenarios + concrete action). Not yet decided whether Issue #0 covers both or whether they become two issues.', [ISSUE, NOTES], 'bulleted_list_item'),
+    h2('scope', ISSUE, SCOPE),
+    p('scope-decision', 'Issue #0 will be one single issue: the main plausible AI scenarios + one concrete action. (Rejected option: splitting into two issues.)', [ISSUE, SCOPE], 'bulleted_list_item'),
+  ]
+
+  it('reports the newest dated section as the current state instead of the oldest working direction', async () => {
+    const result = await interpretNewsletterProject({ source, blocks })
+
+    expect(result.pulse.currentState).toBe('Issue #0 — Thinking phase log: IN PROGRESS. Phases 1–2 confirmed by Simone. Phase 3 (research) and Phase 4 (angle) are still to do.')
+    expect(result.pulse.currentFocus).toBe('Issue #0 — Thinking phase log: Phase 3 (research) and Phase 4 (angle) are still to do.')
+    expect(result.pulse.latestMeaningfulChange).toBe('Issue #0 — Thinking phase log › Scope decision — confirmed by Simone')
+  })
+
+  it('turns confirmed sections into dated decisions and retires what they supersede', async () => {
+    const result = await interpretNewsletterProject({ source, blocks })
+    const titles = result.decisions.map(decision => decision.title)
+
+    expect(titles).toEqual(expect.arrayContaining([
+      'Launch components: The MVP launch consists of exactly: Website; Substack; Instagram',
+      'Initial publishing cadence: For the first six weeks, publish one core Substack issue per week.',
+      expect.stringContaining('Issue #0 will be one single issue'),
+    ]))
+    expect(result.decisions.find(decision => decision.title.startsWith('Launch components'))?.date).toBe('2026-09-15')
+    expect(result.hypotheses).toEqual([])
+    expect(result.recommendations).toEqual([])
+    expect(result.openQuestions.map(question => question.evidenceBlockIds[0])).not.toContain('scope-risk')
+  })
+
+  it('lists dated headings newest first as the change log', async () => {
+    const result = await interpretNewsletterProject({ source, blocks })
+
+    expect(result.recentChanges.map(change => change.date)).toEqual(['2026-09-18', '2026-09-18', '2026-09-15', '2026-09-15', '2026-09-11'])
+    expect(result.recentChanges[0].title).toBe('Issue #0 — Thinking phase log › Scope decision — confirmed by Simone')
+  })
+})
