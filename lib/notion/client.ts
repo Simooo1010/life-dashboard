@@ -1,11 +1,21 @@
 import { Client, isFullPage } from '@notionhq/client'
+import type { RequestParameters } from '@notionhq/client/build/src/Client'
 import type { PageObjectResponse, QueryDatabaseResponse } from '@notionhq/client/build/src/api-endpoints'
+import { withNotionThrottle } from './throttle'
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 // Notion token for Life OS & Second Brain workspace
 const notionToken = process.env.NOTION_TOKEN || process.env.NOTION_TOKEN_SECOND_BRAIN
 
-export const notion = new Client({
+// Every endpoint method funnels through `request`, so pacing and 429 retries
+// here cover all Notion traffic in the app.
+class ThrottledClient extends Client {
+  override request<ResponseBody>(args: RequestParameters): Promise<ResponseBody> {
+    return withNotionThrottle(() => super.request<ResponseBody>(args))
+  }
+}
+
+export const notion: Client = new ThrottledClient({
   auth: notionToken,
 })
 

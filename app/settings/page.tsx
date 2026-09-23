@@ -11,6 +11,7 @@ const SOURCE_LABELS: Record<string, string> = {
   'newsletter': 'Newsletter',
   'weather': 'Meteo',
   'finance': 'Finanze',
+  'synthesis': 'Sintesi AI',
 }
 
 const SOURCES = Object.keys(SOURCE_LABELS)
@@ -31,20 +32,25 @@ interface SyncLogEntry {
 export default function SettingsPage() {
   const [syncing, setSyncing] = useState(false)
   const [statuses, setStatuses] = useState<Record<string, SourceStatus>>({})
-  const [syncResult, setSyncResult] = useState<string | null>(null)
+  const [sourceErrors, setSourceErrors] = useState<Record<string, string>>({})
+  const [syncResult, setSyncResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [history, setHistory] = useState<SyncLogEntry[]>([])
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const esRef = useRef<EventSource | null>(null)
 
   async function loadHistory() {
     try {
-      const res = await fetch('/api/sync/history')
-      if (res.ok) {
-        const data = await res.json()
-        setHistory(data.entries ?? [])
+      const res = await fetch('/api/sync/history', { cache: 'no-store' })
+      if (!res.ok) {
+        setHistoryError(`Impossibile leggere lo storico (HTTP ${res.status}).`)
+        return
       }
+      const data = await res.json()
+      setHistory(data.entries ?? [])
+      setHistoryError(data.error ?? null)
     } catch {
-      // best-effort — history is a nice-to-have, never block the page on it
+      setHistoryError('Impossibile leggere lo storico: errore di rete.')
     } finally {
       setHistoryLoaded(true)
     }
@@ -59,23 +65,39 @@ export default function SettingsPage() {
     if (syncing) return
     setSyncing(true)
     setSyncResult(null)
+    setSourceErrors({})
     setStatuses(Object.fromEntries(SOURCES.map(s => [s, 'running' as const])))
 
     const es = new EventSource('/api/sync/all?force=1')
     esRef.current = es
+    const results: Record<string, SourceStatus> = {}
+    let finished = false
+
+    const finish = (result: { ok: boolean; message: string }) => {
+      finished = true
+      setSyncResult(result)
+      setSyncing(false)
+      setStatuses(prev => Object.fromEntries(Object.entries(prev).map(([source, status]) => [source, status === 'running' ? 'error' : status])))
+      es.close()
+      loadHistory()
+    }
 
     es.onmessage = event => {
       try {
         const payload = JSON.parse(event.data)
         if (payload.done) {
-          setSyncResult(payload.error ? 'Sync completato con alcuni errori.' : 'Sync completato con successo.')
-          setSyncing(false)
-          es.close()
-          loadHistory()
+          const failed = Object.values(results).filter(status => status === 'error').length
+          const updated = Object.values(results).filter(status => status === 'done').length
+          if (payload.error) finish({ ok: false, message: `Sync interrotto: ${payload.error}` })
+          else if (failed > 0) finish({ ok: false, message: `Sync completato: ${updated} fonti aggiornate, ${failed} con errori.` })
+          else finish({ ok: true, message: `Sync completato: ${updated} fonti aggiornate.` })
           return
         }
         if (payload.source) {
-          setStatuses(prev => ({ ...prev, [payload.source]: payload.status === 'error' ? 'error' : 'done' }))
+          const status: SourceStatus = payload.status === 'error' ? 'error' : 'done'
+          results[payload.source] = status
+          setStatuses(prev => ({ ...prev, [payload.source]: status }))
+          if (payload.error) setSourceErrors(prev => ({ ...prev, [payload.source]: payload.error }))
         }
       } catch {
         // ignore malformed events
@@ -83,10 +105,7 @@ export default function SettingsPage() {
     }
 
     es.onerror = () => {
-      setSyncResult('Errore di rete durante il sync.')
-      setSyncing(false)
-      es.close()
-      loadHistory()
+      if (!finished) finish({ ok: false, message: 'Connessione interrotta prima della fine del sync (timeout o errore del server).' })
     }
   }
 
@@ -119,17 +138,22 @@ export default function SettingsPage() {
               {syncing ? 'Sincronizzazione…' : 'Forza sync'}
             </button>
 
-            {syncing && (
+            {Object.keys(statuses).length > 0 && (
               <ul className="space-y-1.5 pt-1">
                 {SOURCES.map(source => {
                   const status = statuses[source]
                   return (
-                    <li key={source} className="flex items-center gap-2 text-xs text-ink-muted">
-                      {status === 'done' && <CheckCircle size={13} className="text-green-600 dark:text-green-400 shrink-0" />}
-                      {status === 'error' && <XCircle size={13} className="text-red-600 dark:text-red-400 shrink-0" />}
-                      {status === 'running' && <Loader2 size={13} className="animate-spin text-accent shrink-0" />}
-                      {!status && <Circle size={13} className="text-ink-faint shrink-0" />}
-                      <span>{SOURCE_LABELS[source]}</span>
+                    <li key={source} className="text-xs text-ink-muted">
+                      <div className="flex items-center gap-2">
+                        {status === 'done' && <CheckCircle size={13} className="text-green-600 dark:text-green-400 shrink-0" />}
+                        {status === 'error' && <XCircle size={13} className="text-red-600 dark:text-red-400 shrink-0" />}
+                        {status === 'running' && <Loader2 size={13} className="animate-spin text-accent shrink-0" />}
+                        {!status && <Circle size={13} className="text-ink-faint shrink-0" />}
+                        <span>{SOURCE_LABELS[source]}</span>
+                      </div>
+                      {status === 'error' && sourceErrors[source] && (
+                        <p className="ml-5 mt-0.5 break-words text-2xs text-red-600/80 dark:text-red-400/80">{sourceErrors[source]}</p>
+                      )}
                     </li>
                   )
                 })}
@@ -137,9 +161,9 @@ export default function SettingsPage() {
             )}
 
             {syncResult && (
-              <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
-                <CheckCircle size={12} />
-                {syncResult}
+              <p className={`text-xs flex items-center gap-1 ${syncResult.ok ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                {syncResult.ok ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                {syncResult.message}
               </p>
             )}
           </div>
@@ -149,6 +173,12 @@ export default function SettingsPage() {
         <section>
           <p className="section-label mb-3">Storico sincronizzazioni</p>
           <div className="card">
+            {historyError && (
+              <p className="mb-3 flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
+                <XCircle size={12} className="mt-0.5 shrink-0" />
+                <span>{historyError}</span>
+              </p>
+            )}
             {!historyLoaded ? (
               <p className="text-xs text-ink-muted">Caricamento…</p>
             ) : history.length === 0 ? (
@@ -167,7 +197,7 @@ export default function SettingsPage() {
                     <div className="text-ink-muted shrink-0 flex items-center gap-2">
                       <span>{entry.durationMs}ms</span>
                       <span>
-                        {new Date(entry.finishedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(entry.finishedAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   </li>

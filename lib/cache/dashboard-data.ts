@@ -8,10 +8,10 @@ import { runDailyOrchestrator } from '@/lib/orchestrator/daily-sync'
 import { getContextualSecondBrain } from '@/lib/second-brain/service'
 import { fetchWeatherData } from '@/lib/weather/client'
 import { recordSyncRun } from '@/lib/sync/log'
-import { DASHBOARD_CACHE_TAGS } from './tags'
+import { BACKGROUND_REFRESH_TAGS, DASHBOARD_CACHE_TAGS } from './tags'
 
-export { DASHBOARD_CACHE_TAGS, invalidateDashboardCache } from './tags'
-export type { DashboardCacheSource } from './tags'
+export { BACKGROUND_REFRESH_TAGS, DASHBOARD_CACHE_TAGS, invalidateBackgroundSource, invalidateDashboardCache } from './tags'
+export type { BackgroundRefreshSource, DashboardCacheSource } from './tags'
 
 const sharedTag = DASHBOARD_CACHE_TAGS.all
 
@@ -26,6 +26,8 @@ export const loadCachedDailyDashboard = unstable_cache(
       DASHBOARD_CACHE_TAGS.lifeOs,
       DASHBOARD_CACHE_TAGS.secondBrain,
       DASHBOARD_CACHE_TAGS.weather,
+      BACKGROUND_REFRESH_TAGS.calendar,
+      BACKGROUND_REFRESH_TAGS.weather,
     ],
   },
 )
@@ -33,13 +35,13 @@ export const loadCachedDailyDashboard = unstable_cache(
 export const loadCachedCalendar = unstable_cache(
   () => recordSyncRun('calendar', 'auto', fetchCalendarData),
   ['dashboard-calendar-v1'],
-  { revalidate: 60, tags: [sharedTag, DASHBOARD_CACHE_TAGS.calendar] },
+  { revalidate: 60, tags: [sharedTag, DASHBOARD_CACHE_TAGS.calendar, BACKGROUND_REFRESH_TAGS.calendar] },
 )
 
 export const loadCachedFinanceSnapshot = unstable_cache(
   () => recordSyncRun('finance', 'auto', () => fetchFinanceSnapshot(false)),
   ['dashboard-finance-v1'],
-  { revalidate: 300, tags: [sharedTag, DASHBOARD_CACHE_TAGS.finance] },
+  { revalidate: 300, tags: [sharedTag, DASHBOARD_CACHE_TAGS.finance, BACKGROUND_REFRESH_TAGS.finance] },
 )
 
 export const loadCachedLifeOsOverview = unstable_cache(
@@ -60,7 +62,7 @@ export const loadCachedNewsletter = unstable_cache(
 export const loadCachedWeather = unstable_cache(
   () => recordSyncRun('weather', 'auto', fetchWeatherData),
   ['dashboard-weather-v1'],
-  { revalidate: 600, tags: [sharedTag, DASHBOARD_CACHE_TAGS.weather] },
+  { revalidate: 600, tags: [sharedTag, DASHBOARD_CACHE_TAGS.weather, BACKGROUND_REFRESH_TAGS.weather] },
 )
 
 export const loadCachedSecondBrainPage = unstable_cache(

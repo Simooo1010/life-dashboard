@@ -8,7 +8,7 @@ import { SystemStatus } from './SystemStatus'
 import { TodayNow } from './TodayNow'
 
 export function LifeOsDashboard({ overview }: { overview: LifeOsOverview }) {
-  const updatedAt = new Date(overview.generatedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+  const updatedAt = new Date(overview.generatedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' })
   return (
     <div className="space-y-9">
       <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">

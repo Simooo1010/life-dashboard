@@ -2,6 +2,10 @@ import type { CalendarEvent } from '@/lib/calendar/google'
 import type { NewsletterComponent, NewsletterProjectState, NewsletterStateItem } from '@/lib/newsletter/types'
 import { AlertCircle, ArrowUpRight, Check, CircleHelp, ExternalLink, FlaskConical, Lightbulb, Milestone, Network, Sparkles } from 'lucide-react'
 
+function formatRome(iso: string): string {
+  return new Date(iso).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' })
+}
+
 function evidenceUrl(state: NewsletterProjectState, item: { evidenceBlockIds: string[] }): string {
   const blockId = item.evidenceBlockIds[0]?.replace(/-/g, '')
   return blockId ? `${state.source.pageUrl}#${blockId}` : state.source.pageUrl
@@ -122,8 +126,8 @@ export function NewsletterDashboard({ state, events }: { state: NewsletterProjec
       {state.additionalSections.map(section => <Section key={section.id} title={section.title} count={section.items.length} icon={<Sparkles size={14} />}><ItemList state={state} items={section.items} tone="neutral" /></Section>)}
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-5 text-2xs text-ink-faint">
-        <span>Fonte aggiornata {new Date(state.source.lastEditedAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-        <span>Dati derivati · cache massima 5 min · Notion resta autorevole</span>
+        <span>Fonte modificata {formatRome(state.source.lastEditedAt)} · letta da Notion {formatRome(state.source.fetchedAt)}</span>
+        <span>Dati derivati · Notion resta autorevole</span>
       </footer>
     </div>
   )

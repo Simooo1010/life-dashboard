@@ -4,7 +4,14 @@ import type { NormalizedWeatherData } from '@/lib/weather/types'
 import type { EventWeatherImpact } from '@/lib/weather/correlation'
 import { getLocalHour } from '@/lib/utils'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+// Built on first use: the SDK throws when the key is missing, and this module
+// is imported by every dashboard page, so an eager client would take all of
+// them down with it.
+let groq: Groq | null = null
+function getGroq(): Groq {
+  groq ??= new Groq({ apiKey: process.env.GROQ_API_KEY })
+  return groq
+}
 
 // event.start is UTC; weather.hourly is indexed by local (Europe/Rome) hour,
 // so this must convert rather than read the raw UTC hour off the string —
@@ -81,7 +88,7 @@ Rispondi SOLO con un JSON di questa forma esatta, senza altro testo:
 Se nessun evento è realmente influenzato dal meteo, rispondi con {"alerts": []}. Non forzare un risultato: è normale che la lista sia vuota.`
 
   try {
-    const response = await groq.chat.completions.create({
+    const response = await getGroq().chat.completions.create({
       model: 'qwen/qwen3.8-27b',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 700,
